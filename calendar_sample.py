@@ -32,8 +32,6 @@ from oauth2client import tools
 from oauth2client.file import Storage
 
 import argparse
-# flags = argparse.ArgumentParser(parents=[tools.argparser]).parse_args()
-flags = None
 
 
 EVENT_TEMPLATE = {'creator': {'displayName': 'Brendan Duke',
@@ -59,7 +57,7 @@ CLIENT_SECRET_FILE = 'client_secret.json'
 APPLICATION_NAME = 'automatic-calendar'
 
 
-def get_credentials():
+def get_credentials(flags):
     """Gets valid user credentials from storage.
 
     If nothing has been stored, or if the stored credentials are invalid,
@@ -80,21 +78,18 @@ def get_credentials():
     if not credentials or credentials.invalid:
         flow = client.flow_from_clientsecrets(CLIENT_SECRET_FILE, SCOPES)
         flow.user_agent = APPLICATION_NAME
-        if flags:
-            credentials = tools.run_flow(flow, store, flags)
-        else: # Needed only for compatibility with Python 2.6
-            credentials = tools.run(flow, store)
+        credentials = tools.run_flow(flow, store, flags)
         print('Storing credentials to ' + credential_path)
     return credentials
 
 
-def create_events(start, end, summary, should_show_upcoming):
+def create_events(start, end, summary, should_show_upcoming, flags):
     """Shows basic usage of the Google Calendar API.
 
     Creates a Google Calendar API service object and outputs a list of the next
     10 events on the user's calendar.
     """
-    credentials = get_credentials()
+    credentials = get_credentials(flags)
     http = credentials.authorize(httplib2.Http())
     service = discovery.build('calendar', 'v3', http=http)
 
@@ -126,7 +121,7 @@ def create_events(start, end, summary, should_show_upcoming):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(parents=[tools.argparser])
 
     parser.add_argument('--day', type=str, help='Day of schedule.')
     parser.add_argument('--schedule', type=str, help='Schedule filename')
@@ -143,4 +138,5 @@ if __name__ == '__main__':
         create_events(start,
                       end,
                       event['summary'],
-                      should_show_upcoming=should_show_upcoming)
+                      should_show_upcoming=should_show_upcoming,
+                      flags=args)
