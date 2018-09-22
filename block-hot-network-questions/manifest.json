@@ -3,7 +3,7 @@
     "name": "Stack exchange styles",
     "version": "0.2",
     "content_scripts": [{
-        "matches": ["*://meta.stackexchange.com/*", "*://stackoverflow.com/*", "*://*.stackexchange.com/*"],
+        "matches": ["*://meta.stackexchange.com/*", "*://stackoverflow.com/*", "*://*.stackexchange.com/*", "*://askubuntu.com/*"],
         "css": ["style.css"]
     }]
 }
