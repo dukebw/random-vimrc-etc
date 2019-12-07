@@ -34,6 +34,8 @@ Plugin 'pangloss/vim-javascript'
 Plugin 'neomake/neomake'
 Plugin 'yegappan/mru'
 Plugin 'mbbill/undotree'
+Plugin 'christoomey/vim-tmux-navigator'
+Plugin 'tikhomirov/vim-glsl'
 Plugin 'keith/swift.vim'
 Plugin 'leafgarland/typescript-vim'
 
@@ -196,6 +198,8 @@ endif
 let g:neomake_python_exe = 'python3'
 set nocscopeverbose
 set cursorcolumn
+
+autocmd! BufNewFile,BufRead *.vs,*.fs set ft=glsl
 
 let g:netrw_liststyle = 3
 let g:netrw_banner = 0
