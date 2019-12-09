@@ -38,6 +38,7 @@ Plugin 'christoomey/vim-tmux-navigator'
 Plugin 'tikhomirov/vim-glsl'
 Plugin 'keith/swift.vim'
 Plugin 'leafgarland/typescript-vim'
+Plugin 'psf/black'
 
 " plugin from http://vim-scripts.org/vim/scripts.html
 " Plugin 'L9'
@@ -206,3 +207,6 @@ let g:netrw_banner = 0
 let g:netrw_browse_split = 2
 let g:netrw_winsize = 25
 let g:javascript_plugin_flow = 1
+let g:syntastic_disabled_filetypes=['html']
+autocmd BufWritePre *.py execute ':silent Black'
+let g:neomake_python_enabled_makers = ['python', 'pylint']
