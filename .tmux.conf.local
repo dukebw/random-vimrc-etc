@@ -297,3 +297,4 @@ bind C-a send-prefix
 set -g base-index 0
 
 bind-key C-a last-window
+bind a send-prefix
