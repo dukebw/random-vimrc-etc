@@ -39,6 +39,11 @@ Plugin 'tikhomirov/vim-glsl'
 Plugin 'keith/swift.vim'
 Plugin 'leafgarland/typescript-vim'
 Plugin 'psf/black'
+Plugin 'mxw/vim-jsx'
+Plugin 'dense-analysis/ale'
+Plugin 'glacambre/firenvim'
+Plugin 'lervag/vimtex'
+Plugin 'sbdchd/neoformat'
 
 " plugin from http://vim-scripts.org/vim/scripts.html
 " Plugin 'L9'
@@ -56,7 +61,7 @@ Plugin 'psf/black'
 call vundle#end()            " required
 filetype plugin indent on    " required
 " To ignore plugin indent changes, instead use:
-"filetype plugin on
+" filetype plugin on
 "
 " Brief help
 " :PluginList       - lists configured plugins
@@ -100,9 +105,6 @@ set autoindent
 " Autocomplete like BASH
 set wildmode=longest,list
 
-" Disable auto-comments
-autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
-
 " matchit.vim
 runtime macros/matchit.vim
 
@@ -126,10 +128,12 @@ noremap ,2 :cp<CR>
 noremap ,3 :cn<CR>
 noremap ,4 :cs reset<CR>
 
-"autocmd BufRead,BufNewFile *.md,*.c,*.h,*.java set noexpandtab
-
 set cino+=(0
 
+" autocommands
+augroup syntax_generic
+autocmd!
+autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
 autocmd BufEnter * :syn sync minlines=400 maxlines=400 ccomment
 autocmd BufEnter *.py :syn sync fromstart
 autocmd FileType latex set sts=0 ts=0 sw=0
@@ -137,8 +141,17 @@ autocmd FileType html setlocal sts=4 ts=4 sw=4
 autocmd FileType cshtml setlocal sts=4 ts=4 sw=4
 autocmd FileType cs setlocal sts=4 ts=4 sw=4
 autocmd FileType md setlocal sts=4 ts=4 sw=4
+autocmd FileType javascript setlocal sts=0 ts=2 sw=2 expandtab
 autocmd FileType cs noremap ,1 :!gen_aspnet_cscope.sh<CR>:cs reset<CR>
-au BufReadPost *.cshtml set syntax=html
+autocmd BufReadPost *.cshtml set syntax=html
+autocmd BufNewFile,BufRead *.vs,*.fs set ft=glsl
+augroup END
+
+augroup formatting
+autocmd!
+autocmd BufWritePost * Neomake
+autocmd BufWritePre *.py execute ':silent Black'
+augroup END
 
 "Showmatch significantly slows down omnicomplete
 "when the first match contains parentheses.
@@ -188,8 +201,6 @@ au BufRead,BufNewFile *.g set filetype=antlr3
 au BufRead,BufNewFile *.g4 set filetype=antlr4
 au BufRead,BufNewFile *.tikz set filetype=tex
 
-autocmd! BufWritePost * Neomake
-
 if &term =~ '256color'
     " Disable Background Color Erase (BCE) so that color schemes
     " work properly when Vim is used inside tmux and GNU screen.
@@ -200,13 +211,32 @@ let g:neomake_python_exe = 'python3'
 set nocscopeverbose
 set cursorcolumn
 
-autocmd! BufNewFile,BufRead *.vs,*.fs set ft=glsl
-
 let g:netrw_liststyle = 3
 let g:netrw_banner = 0
 let g:netrw_browse_split = 2
 let g:netrw_winsize = 25
 let g:javascript_plugin_flow = 1
 let g:syntastic_disabled_filetypes=['html']
-autocmd BufWritePre *.py execute ':silent Black'
 let g:neomake_python_enabled_makers = ['python', 'pylint']
+let g:neomake_cpp_clang_args = neomake#makers#ft#cpp#clang().args + ['-I./include', '-I./libigl/external/eigen', '-I./libigl/include']
+let g:neomake_cpp_clangcheck_args = ['-I./include', '-I./libigl/external/eigen', '-I./libigl/include']
+let g:neomake_cpp_clangtidy_args = ['-I./include', '-I./libigl/external/eigen', '-I./libigl/include']
+let g:black_virtualenv = '~/.vim_black'
+
+" In ~/.vim/ftplugin/javascript.vim, or somewhere similar.
+
+" Equivalent to the above.
+let g:ale_linters = {'javascript': ['eslint']}
+
+" Only run linters named in ale_linters settings.
+let g:ale_linters_explicit = 1
+
+" Set this variable to 1 to fix files when you save them.
+let g:ale_fix_on_save = 1
+
+let g:ale_fixers = {'javascript': ['eslint']}
+
+au BufRead,BufNewFile *.bib setlocal nocindent
+
+let g:tex_flavor = 'latex'
+let g:python3_host_prog = '/home/bduke/miniconda3/bin/python3'
