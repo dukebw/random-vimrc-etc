@@ -50,3 +50,15 @@ fi
 
 export TVM_HOME=$HOME/work/tvm
 export PYTHONPATH=$TVM_HOME/python:$TVM_HOME/topi/python:$TVM_HOME/nnvm/python:${PYTHONPATH}
+
+source "/home/bduke/work/mfe-tools-cross/install/env.sh"
+
+# The next line updates PATH for the Google Cloud SDK.
+if [ -f '/home/bduke/work/google-cloud-sdk/path.bash.inc' ]; then . '/home/bduke/work/google-cloud-sdk/path.bash.inc'; fi
+
+# The next line enables shell command completion for gcloud.
+if [ -f '/home/bduke/work/google-cloud-sdk/completion.bash.inc' ]; then . '/home/bduke/work/google-cloud-sdk/completion.bash.inc'; fi
+
+# User specific aliases and functions
+. "$HOME/miniconda/etc/profile.d/conda.sh"
+conda activate
