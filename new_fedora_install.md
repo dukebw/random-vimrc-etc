@@ -21,4 +21,10 @@ bash ~/miniconda.sh -b -p $HOME/miniconda
 
 - `pip install neovim`
 
+- Copy `.ssh/id_rsa*`, `.ssh/config`, `.ssh/brendan-laptop0.pem` from previous machine.
+
 - Install CUDA and NVIDIA driver https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html
+
+- Download Inconsolata and set fonts (gnome-tweaks)
+
+- Setup dropbox (dnf)
