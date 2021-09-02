@@ -20,30 +20,30 @@ Plugin 'zeis/vim-kolor'
 Plugin 'flazz/vim-colorschemes'
 Plugin 'tpope/vim-commentary'
 Plugin 'myusuf3/numbers.vim'
-" Plugin 'tpope/vim-sensible'
 Plugin 'tpope/vim-surround'
 Plugin 'tpope/vim-unimpaired'
-" Plugin 'Valloric/YouCompleteMe'
-Plugin 'chazy/cscope_maps'
 Plugin 'lyuts/vim-rtags'
 Plugin 'tpope/vim-dispatch'
 Plugin 'Shougo/unite.vim'
+" NOTE(brendan): jedi-vim can sometimes get into a state where it lags a lot,
+" apparently requiring system reboot to resolve
+" Seems to go away with let g:jedi#show_call_signatures = "0"
+" See this thread: https://github.com/davidhalter/jedi-vim/issues/217
 Plugin 'davidhalter/jedi-vim'
 Plugin 'dylon/vim-antlr'
-Plugin 'pangloss/vim-javascript'
 Plugin 'neomake/neomake'
 Plugin 'yegappan/mru'
 Plugin 'mbbill/undotree'
 Plugin 'christoomey/vim-tmux-navigator'
 Plugin 'tikhomirov/vim-glsl'
-Plugin 'keith/swift.vim'
 Plugin 'leafgarland/typescript-vim'
 Plugin 'psf/black'
+Plugin 'pangloss/vim-javascript'
 Plugin 'mxw/vim-jsx'
 Plugin 'dense-analysis/ale'
-Plugin 'glacambre/firenvim'
 Plugin 'lervag/vimtex'
 Plugin 'sbdchd/neoformat'
+Plugin 'cespare/vim-toml'
 
 " plugin from http://vim-scripts.org/vim/scripts.html
 " Plugin 'L9'
@@ -132,25 +132,31 @@ set cino+=(0
 
 " autocommands
 augroup syntax_generic
-autocmd!
-autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
-autocmd BufEnter * :syn sync minlines=400 maxlines=400 ccomment
-autocmd BufEnter *.py :syn sync fromstart
-autocmd FileType latex set sts=0 ts=0 sw=0
-autocmd FileType html setlocal sts=4 ts=4 sw=4
-autocmd FileType cshtml setlocal sts=4 ts=4 sw=4
-autocmd FileType cs setlocal sts=4 ts=4 sw=4
-autocmd FileType md setlocal sts=4 ts=4 sw=4
-autocmd FileType javascript setlocal sts=0 ts=2 sw=2 expandtab
-autocmd FileType cs noremap ,1 :!gen_aspnet_cscope.sh<CR>:cs reset<CR>
-autocmd BufReadPost *.cshtml set syntax=html
-autocmd BufNewFile,BufRead *.vs,*.fs set ft=glsl
+        autocmd!
+        autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
+        autocmd BufEnter * :syn sync minlines=400 maxlines=400 ccomment
+        autocmd BufEnter *.py :syn sync fromstart
+        autocmd FileType latex set sts=0 ts=0 sw=0
+        autocmd FileType html setlocal sts=4 ts=4 sw=4
+        autocmd FileType cshtml setlocal sts=4 ts=4 sw=4
+        autocmd FileType cs setlocal sts=4 ts=4 sw=4
+        autocmd FileType md setlocal sts=4 ts=4 sw=4
+        autocmd FileType javascript setlocal sts=4 ts=4 sw=4 expandtab
+        autocmd FileType cs noremap ,1 :!gen_aspnet_cscope.sh<CR>:cs reset<CR>
+        autocmd BufReadPost *.cshtml set syntax=html
+        autocmd BufNewFile,BufRead *.vs,*.fs set ft=glsl
+        autocmd FileType html iabbrev <buffer> lorem Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.
+        autocmd FileType html iabbrev <buffer> HTML <!DOCTYPE html><html><head><title></title></head><body></body></html>
+        autocmd FileType html iabbrev <buffer> LINK <link rel="stylesheet" type="text/css" href="">
 augroup END
 
 augroup formatting
 autocmd!
 autocmd BufWritePost * Neomake
+" TODO(brendan): this causes the cursor to jump to some position in the file on save
+autocmd BufWritePre * try | undojoin | Neoformat | catch /^Vim\%((\a\+)\)\=:E790/ | finally | silent Neoformat | endtry
 autocmd BufWritePre *.py execute ':silent Black'
+autocmd BufWritePre *.sh :normal gg=G''
 augroup END
 
 "Showmatch significantly slows down omnicomplete
@@ -194,6 +200,7 @@ let g:jedi#force_py_version = 3
 
 let g:syntastic_check_on_open = 0
 let g:syntastic_check_on_wq = 1
+let g:syntastic_auto_jump = 0
 
 nnoremap <leader>l :syntax sync fromstart<CR>
 
@@ -218,15 +225,15 @@ let g:netrw_winsize = 25
 let g:javascript_plugin_flow = 1
 let g:syntastic_disabled_filetypes=['html']
 let g:neomake_python_enabled_makers = ['python', 'pylint']
-let g:neomake_cpp_clang_args = neomake#makers#ft#cpp#clang().args + ['-I./include', '-I./libigl/external/eigen', '-I./libigl/include']
-let g:neomake_cpp_clangcheck_args = ['-I./include', '-I./libigl/external/eigen', '-I./libigl/include']
-let g:neomake_cpp_clangtidy_args = ['-I./include', '-I./libigl/external/eigen', '-I./libigl/include']
+let g:neomake_cpp_clang_args = neomake#makers#ft#cpp#clang().args + ['-I./include', '-I/home/bduke/work/libigl/external/eigen', '-I/home/bduke/work/libigl/include']
+let g:neomake_cpp_clangcheck_args = ['--extra-arg=-I/home/bduke/work/libigl/external/eigen', '--extra-arg=-I/home/bduke/work/libigl/include', '--extra-arg=-std=c++17']
+let g:neomake_cpp_clangtidy_args = ['-I./include', '-I/home/bduke/work/libigl/external/eigen', '-I/home/bduke/work/libigl/include']
 let g:black_virtualenv = '~/.vim_black'
 
 " In ~/.vim/ftplugin/javascript.vim, or somewhere similar.
 
 " Equivalent to the above.
-let g:ale_linters = {'javascript': ['eslint']}
+let g:ale_linters = {'javascript': ['eslint'], 'python': ['mypy']}
 
 " Only run linters named in ale_linters settings.
 let g:ale_linters_explicit = 1
@@ -239,4 +246,8 @@ let g:ale_fixers = {'javascript': ['eslint']}
 au BufRead,BufNewFile *.bib setlocal nocindent
 
 let g:tex_flavor = 'latex'
-let g:python3_host_prog = '/home/bduke/miniconda3/bin/python3'
+let g:python3_host_prog = '/home/bduke/miniconda/bin/python'
+let g:python_host_prog = ''
+let g:loaded_python_provider = 0
+
+let g:jedi#show_call_signatures = "0"
