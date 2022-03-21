@@ -127,7 +127,8 @@ augroup syntax_generic
         autocmd!
         autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
         autocmd FileType latex set sts=0 ts=0 sw=0
-        autocmd FileType html setlocal sts=4 ts=4 sw=4
+        autocmd FileType css setlocal sts=2 ts=2 sw=2
+        autocmd FileType html setlocal sts=2 ts=2 sw=2
         autocmd FileType cshtml setlocal sts=4 ts=4 sw=4
         autocmd FileType cs setlocal sts=4 ts=4 sw=4
         autocmd FileType md setlocal sts=4 ts=4 sw=4
@@ -212,18 +213,21 @@ let g:black_virtualenv = '~/.vim_black'
 let g:ale_linters = {
 \       'cpp': ['clangd'],
 \       'cuda': ['clangd'],
+\       'css': ['eslint'],
 \       'javascript': ['eslint'],
 \       'python': ['flake8', 'mypy', 'pylint', 'pylsp'],
 \}
 
 " Only run linters named in ale_linters settings.
-let g:ale_linters_explicit = 1
+let g:ale_linters_explicit = 0
 
 " Set this variable to 1 to fix files when you save them.
 let g:ale_fix_on_save = 1
 
 let g:ale_fixers = {
 \       '*': ['remove_trailing_lines', 'trim_whitespace'],
+\       'css': ['prettier'],
+\       'html': ['prettier'],
 \       'javascript': ['eslint', 'prettier'],
 \       'python': ['black'],
 \       'cpp': ['clang-format'],
