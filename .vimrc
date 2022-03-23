@@ -39,6 +39,7 @@ Plugin 'pangloss/vim-javascript'
 Plugin 'mxw/vim-jsx'
 Plugin 'dense-analysis/ale'
 Plugin 'lervag/vimtex'
+Plugin 'ervandew/supertab'
 
 " plugin from http://vim-scripts.org/vim/scripts.html
 " Plugin 'L9'
@@ -150,11 +151,8 @@ augroup END
 "when the first match contains parentheses.
 set noshowmatch
 
-"Super tab settings - uncomment the next 4 lines
-"let g:SuperTabDefaultCompletionType = 'context'
-"let g:SuperTabContextDefaultCompletionType = "<c-x><c-o>"
-"let g:SuperTabDefaultCompletionTypeDiscovery = ["&omnifunc:<c-x><c-o>","&completefunc:<c-x><c-n>"]
-"let g:SuperTabClosePreviewOnPopupClose = 1
+let g:SuperTabDefaultCompletionType = "<c-n>"
+let g:SuperTabClosePreviewOnPopupClose = 1
 
 "don't autoselect first item in omnicomplete, show if only one item (for preview)
 "remove preview if you don't want to see any documentation whatsoever.
@@ -236,10 +234,13 @@ let g:ale_fixers = {
 
 let g:ale_completion_enabled = 1
 
+let g:ale_completion_delay = 1
+
 let g:ale_lsp_suggestions = 1
 
 nmap <silent> <leader>g <Plug>(ale_go_to_definition)
 nmap <silent> <leader>n <Plug>(ale_find_references)
+nmap <silent> <leader>s :ALESymbolSearch<space>
 
 au BufRead,BufNewFile *.bib setlocal nocindent
 
