@@ -1,0 +1,6 @@
+flake8
+jedi
+mypy
+neovim
+pylint
+python-lsp-server
