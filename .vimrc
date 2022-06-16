@@ -40,6 +40,7 @@ Plugin 'mxw/vim-jsx'
 Plugin 'dense-analysis/ale'
 Plugin 'lervag/vimtex'
 Plugin 'ervandew/supertab'
+Plugin 'github/copilot.vim'
 
 " plugin from http://vim-scripts.org/vim/scripts.html
 " Plugin 'L9'
@@ -78,9 +79,9 @@ colorscheme kolor
 nmap <silent> <C-N> :silent noh<CR>
 
 " Set tab stops to be 2 spaces
-set tabstop=8
-set softtabstop=8
-set shiftwidth=8
+set tabstop=2
+set softtabstop=2
+set shiftwidth=2
 set expandtab
 " set smarttab
 
@@ -226,15 +227,16 @@ let g:ale_fixers = {
 \       '*': ['remove_trailing_lines', 'trim_whitespace'],
 \       'css': ['prettier'],
 \       'html': ['prettier'],
-\       'javascript': ['eslint', 'prettier'],
+\       'javascript': ['eslint', 'prettier-eslint'],
 \       'python': ['black'],
 \       'cpp': ['clang-format'],
+\       'c': ['clang-format'],
 \       'cuda': ['clang-format'],
 \}
 
-let g:ale_completion_enabled = 1
+let g:ale_completion_enabled = 0
 
-let g:ale_completion_delay = 1
+let g:ale_completion_delay = 100
 
 let g:ale_lsp_suggestions = 1
 
