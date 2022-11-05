@@ -135,6 +135,7 @@ augroup syntax_generic
         autocmd FileType cs setlocal sts=4 ts=4 sw=4
         autocmd FileType md setlocal sts=4 ts=4 sw=4
         autocmd FileType javascript setlocal sts=4 ts=4 sw=4 expandtab
+        autocmd FileType go setlocal sts=2 ts=2 sw=2 noexpandtab
         autocmd BufReadPost *.cshtml set syntax=html
         autocmd BufNewFile,BufRead *.vs,*.fs set ft=glsl
         autocmd FileType html iabbrev <buffer> lorem Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.
@@ -226,12 +227,14 @@ let g:ale_fix_on_save = 1
 let g:ale_fixers = {
 \       '*': ['remove_trailing_lines', 'trim_whitespace'],
 \       'css': ['prettier'],
+\       'go': ['gofmt'],
 \       'html': ['prettier'],
 \       'javascript': ['eslint', 'prettier-eslint'],
 \       'python': ['black'],
-\       'cpp': ['clang-format'],
-\       'c': ['clang-format'],
+\       'cpp': ['clang-format', 'clangtidy'],
 \       'cuda': ['clang-format'],
+\       'c': ['clang-format'],
+\       'tex': ['latexindent'],
 \}
 
 let g:ale_completion_enabled = 0
@@ -241,12 +244,13 @@ let g:ale_completion_delay = 100
 let g:ale_lsp_suggestions = 1
 
 nmap <silent> <leader>g <Plug>(ale_go_to_definition)
+nmap <silent> <leader>d <Plug>(ale_go_to_implementation)
 nmap <silent> <leader>n <Plug>(ale_find_references)
 nmap <silent> <leader>s :ALESymbolSearch<space>
 
 au BufRead,BufNewFile *.bib setlocal nocindent
 
 let g:tex_flavor = 'latex'
-let g:python3_host_prog = '/home/bduke/miniconda/bin/python'
+let g:python3_host_prog = '/Users/brendanduke/miniconda/bin/python3'
 let g:python_host_prog = ''
 let g:loaded_python_provider = 0
