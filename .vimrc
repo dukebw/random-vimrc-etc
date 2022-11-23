@@ -31,16 +31,14 @@ Plugin 'davidhalter/jedi-vim'
 Plugin 'dylon/vim-antlr'
 Plugin 'yegappan/mru'
 Plugin 'mbbill/undotree'
-Plugin 'christoomey/vim-tmux-navigator'
-Plugin 'tikhomirov/vim-glsl'
 Plugin 'leafgarland/typescript-vim'
 Plugin 'psf/black'
 Plugin 'pangloss/vim-javascript'
-Plugin 'mxw/vim-jsx'
 Plugin 'dense-analysis/ale'
 Plugin 'lervag/vimtex'
 Plugin 'ervandew/supertab'
 Plugin 'github/copilot.vim'
+Plugin 'f-person/git-blame.nvim'
 
 " plugin from http://vim-scripts.org/vim/scripts.html
 " Plugin 'L9'
@@ -113,17 +111,6 @@ set backupdir=$HOME/.vim/backupdir
 set directory=$HOME/.vim/backupdir
 set undodir=$HOME/.vim/undodir
 
-set cscopequickfix=s-,c-,d-,i-,t-,e-
-
-" noremap ,1 :make<CR>:cs reset<CR>
-" noremap ,1 :!find . -iname "*.cshtml" > cscope.files && cscope -b -q -k<CR>:cs reset<CR>
-noremap ,1 :!cscope -b -q -k<CR>:cs reset<CR>
-noremap ,2 :cp<CR>
-noremap ,3 :cn<CR>
-noremap ,4 :cs reset<CR>
-
-set cino+=(0
-
 " autocommands
 augroup syntax_generic
         autocmd!
@@ -138,6 +125,7 @@ augroup syntax_generic
         autocmd FileType go setlocal sts=2 ts=2 sw=2 noexpandtab
         autocmd BufReadPost *.cshtml set syntax=html
         autocmd BufNewFile,BufRead *.vs,*.fs set ft=glsl
+        autocmd BufNewFile,BufRead *.mlir set filetype=mlir
         autocmd FileType html iabbrev <buffer> lorem Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.
         autocmd FileType html iabbrev <buffer> HTML <!DOCTYPE html><html><head><title></title></head><body></body></html>
         autocmd FileType html iabbrev <buffer> LINK <link rel="stylesheet" type="text/css" href="">
@@ -195,7 +183,6 @@ if &term =~ '256color'
     set t_ut=
 endif
 
-set nocscopeverbose
 set cursorcolumn
 
 " NOTE(brendan): netrw is the built-in neovim file browser
@@ -217,13 +204,10 @@ let g:ale_linters = {
 \       'javascript': ['eslint'],
 \       'python': ['flake8', 'mypy', 'pylint', 'pylsp'],
 \}
-
 " Only run linters named in ale_linters settings.
 let g:ale_linters_explicit = 0
-
 " Set this variable to 1 to fix files when you save them.
 let g:ale_fix_on_save = 1
-
 let g:ale_fixers = {
 \       '*': ['remove_trailing_lines', 'trim_whitespace'],
 \       'css': ['prettier'],
@@ -236,12 +220,10 @@ let g:ale_fixers = {
 \       'c': ['clang-format'],
 \       'tex': ['latexindent'],
 \}
-
 let g:ale_completion_enabled = 0
-
 let g:ale_completion_delay = 100
-
 let g:ale_lsp_suggestions = 1
+let g:ale_c_build_dir_names = ['build', '.derived/build-debug', '.derived/third-party/llvm-project/build-release']
 
 nmap <silent> <leader>g <Plug>(ale_go_to_definition)
 nmap <silent> <leader>d <Plug>(ale_go_to_implementation)
@@ -251,6 +233,6 @@ nmap <silent> <leader>s :ALESymbolSearch<space>
 au BufRead,BufNewFile *.bib setlocal nocindent
 
 let g:tex_flavor = 'latex'
-let g:python3_host_prog = '/Users/brendanduke/miniconda/bin/python3'
-let g:python_host_prog = ''
-let g:loaded_python_provider = 0
+
+" NOTE: git-blame https://github.com/f-person/git-blame.nvim
+let g:gitblame_enabled = 1
