@@ -1,0 +1,14 @@
+If:
+  PathMatch: third-party/llvm-project/.*
+
+CompileFlags:
+  CompilationDatabase: .derived/third-party/llvm-project/build
+
+---
+
+If:
+  PathMatch: .*
+  PathExclude: third-party/llvm-project/.*
+
+CompileFlags:
+  CompilationDatabase: .derived/build
