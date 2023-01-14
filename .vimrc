@@ -3,71 +3,48 @@ let mapleader = '-'
 set nocompatible              " be iMproved, required
 filetype off                  " required
 
-" set the runtime path to include Vundle and initialize
-set rtp+=~/.vim/bundle/Vundle.vim
-call vundle#begin()
-" alternatively, pass a path where Vundle should install plugins
-"call vundle#begin('~/some/path/here')
+call plug#begin()
+" The default plugin directory will be as follows:
+"   - Vim (Linux/macOS): '~/.vim/plugged'
+"   - Vim (Windows): '~/vimfiles/plugged'
+"   - Neovim (Linux/macOS/Windows): stdpath('data') . '/plugged'
+" You can specify a custom plugin directory by passing it as the argument
+"   - e.g. `call plug#begin('~/.vim/plugged')`
+"   - Avoid using standard Vim directory names like 'plugin'
 
-" let Vundle manage Vundle, required
-Plugin 'gmarik/Vundle.vim'
-
-" The following are examples of different formats supported.
-" Keep Plugin commands between vundle#begin/end.
-" plugin on GitHub repo
-Plugin 'tpope/vim-fugitive'
-Plugin 'zeis/vim-kolor'
-Plugin 'flazz/vim-colorschemes'
-Plugin 'tpope/vim-commentary'
-Plugin 'myusuf3/numbers.vim'
-Plugin 'tpope/vim-surround'
-Plugin 'tpope/vim-unimpaired'
-Plugin 'tpope/vim-dispatch'
+Plug 'tpope/vim-commentary'
+Plug 'tpope/vim-dispatch'
+Plug 'tpope/vim-fugitive'
+Plug 'tpope/vim-git'
+Plug 'tpope/vim-surround'
+Plug 'tpope/vim-unimpaired'
+Plug 'myusuf3/numbers.vim'
+Plug 'zeis/vim-kolor'
+Plug 'flazz/vim-colorschemes'
 " NOTE(brendan): jedi-vim can sometimes get into a state where it lags a lot,
 " apparently requiring system reboot to resolve
 " Seems to go away with let g:jedi#show_call_signatures = "0"
 " See this thread: https://github.com/davidhalter/jedi-vim/issues/217
-Plugin 'davidhalter/jedi-vim'
-Plugin 'dylon/vim-antlr'
-Plugin 'yegappan/mru'
-Plugin 'mbbill/undotree'
-Plugin 'leafgarland/typescript-vim'
-Plugin 'psf/black'
-Plugin 'pangloss/vim-javascript'
-Plugin 'dense-analysis/ale'
-Plugin 'lervag/vimtex'
-Plugin 'ervandew/supertab'
-Plugin 'github/copilot.vim'
-Plugin 'f-person/git-blame.nvim'
-
-" plugin from http://vim-scripts.org/vim/scripts.html
-" Plugin 'L9'
-" " Git plugin not hosted on GitHub
-" Plugin 'git://git.wincent.com/command-t.git'
-" " git repos on your local machine (i.e. when working on your own plugin)
-" Plugin 'file:///home/gmarik/path/to/plugin'
-" " The sparkup vim script is in a subdirectory of this repo called vim.
-" " Pass the path to set the runtimepath properly.
-" Plugin 'rstacruz/sparkup', {'rtp': 'vim/'}
-" " Avoid a name conflict with L9
-" Plugin 'user/L9', {'name': 'newL9'}
+Plug 'davidhalter/jedi-vim'
+Plug 'dylon/vim-antlr'
+Plug 'yegappan/mru'
+Plug 'mbbill/undotree'
+Plug 'leafgarland/typescript-vim'
+Plug 'psf/black'
+Plug 'pangloss/vim-javascript'
+Plug 'dense-analysis/ale'
+Plug 'lervag/vimtex'
+Plug 'ervandew/supertab'
+Plug 'github/copilot.vim'
+Plug 'f-person/git-blame.nvim'
+Plug 'nvim-lua/plenary.nvim'
+Plug 'nvim-telescope/telescope.nvim', {'tag': '0.1.0'}
+Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
+Plug 'nvim-telescope/telescope-file-browser.nvim'
+Plug 'nvim-tree/nvim-web-devicons'
 
 " All of your Plugins must be added before the following line
-call vundle#end()            " required
-filetype plugin indent on    " required
-" To ignore plugin indent changes, instead use:
-" filetype plugin on
-"
-" Brief help
-" :PluginList       - lists configured plugins
-" :PluginInstall    - installs plugins; append `!` to update or just :PluginUpdate
-" :PluginSearch foo - searches for foo; append `!` to refresh local cache
-" :PluginClean      - confirms removal of unused plugins; append `!` to auto-approve removal
-"
-" see :h vundle for more details or wiki for FAQ
-" Put your non-Plugin stuff after this line
-"Personal settings
-"More to be added soon
+call plug#end()            " required
 filetype plugin indent on
 syntax on
 
@@ -125,11 +102,11 @@ augroup syntax_generic
         autocmd FileType go setlocal sts=2 ts=2 sw=2 noexpandtab
         autocmd BufReadPost *.cshtml set syntax=html
         autocmd BufNewFile,BufRead *.vs,*.fs set ft=glsl
-        autocmd BufNewFile,BufRead *.mlir set filetype=mlir
         autocmd FileType html iabbrev <buffer> lorem Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.
         autocmd FileType html iabbrev <buffer> HTML <!DOCTYPE html><html><head><title></title></head><body></body></html>
         autocmd FileType html iabbrev <buffer> LINK <link rel="stylesheet" type="text/css" href="">
         autocmd filetype python iabbrev <buffer> dtp dt.p(<CR>"""<CR><BS>""")
+        autocmd BufNewFile,BufRead *.h.inc,*.cpp.inc set ft=cpp
 augroup END
 
 augroup formatting
@@ -197,12 +174,16 @@ let g:black_virtualenv = '~/.vim_black'
 
 " NOTE(brendan): ALE
 " Equivalent to the above.
+" TODO: pylsp
 let g:ale_linters = {
+\       'cmake': ['cmake-language-server'],
+\       'c': ['clangd'],
 \       'cpp': ['clangd'],
 \       'cuda': ['clangd'],
 \       'css': ['eslint'],
 \       'javascript': ['eslint'],
-\       'python': ['flake8', 'mypy', 'pylint', 'pylsp'],
+\       'python': ['mypy', 'flake8', 'pylint', 'pyright'],
+\       'tablegen': ['clangd'],
 \}
 " Only run linters named in ale_linters settings.
 let g:ale_linters_explicit = 0
@@ -214,7 +195,7 @@ let g:ale_fixers = {
 \       'go': ['gofmt'],
 \       'html': ['prettier'],
 \       'javascript': ['eslint', 'prettier-eslint'],
-\       'python': ['black'],
+\       'python': ['black', 'isort'],
 \       'cpp': ['clang-format', 'clangtidy'],
 \       'cuda': ['clang-format'],
 \       'c': ['clang-format'],
@@ -223,7 +204,6 @@ let g:ale_fixers = {
 let g:ale_completion_enabled = 0
 let g:ale_completion_delay = 100
 let g:ale_lsp_suggestions = 1
-let g:ale_c_build_dir_names = ['build', '.derived/build-debug', '.derived/third-party/llvm-project/build-release']
 
 nmap <silent> <leader>g <Plug>(ale_go_to_definition)
 nmap <silent> <leader>d <Plug>(ale_go_to_implementation)
@@ -236,3 +216,22 @@ let g:tex_flavor = 'latex'
 
 " NOTE: git-blame https://github.com/f-person/git-blame.nvim
 let g:gitblame_enabled = 1
+
+let g:netrw_winsize = 50
+
+let g:ale_python_flake8_options = '--max-line-length=80'
+
+" telescope.nvim
+" Find files using Telescope command-line sugar.
+nnoremap <leader>fb <cmd>Telescope buffers<cr>
+nnoremap <leader>fi <cmd>Telescope file_browser<cr>
+nnoremap <leader>ff <cmd>Telescope find_files<cr>
+nnoremap <leader>lf <cmd>Telescope find_files find_command=rg,--ignore,--hidden,--files,--glob,!third-party prompt_prefix=🔍<cr>
+nnoremap <leader>fs <cmd>Telescope grep_string<cr>
+nnoremap <leader>fh <cmd>Telescope help_tags<cr>
+nnoremap <leader>fg <cmd>Telescope live_grep<cr>
+nnoremap <leader>lg <cmd>Telescope live_grep glob_pattern=!third-party prompt_prefix=🔍<cr>
+
+lua require('telescope').load_extension('file_browser')
+lua require('telescope').setup { pickers = { find_files = { hidden = true } } }
+lua require('telescope').setup { pickers = { live_grep = { additional_args = function(opts) return { '--hidden' } end } } }
