@@ -38,7 +38,7 @@ Plug 'ervandew/supertab'
 Plug 'github/copilot.vim'
 Plug 'f-person/git-blame.nvim'
 Plug 'nvim-lua/plenary.nvim'
-Plug 'nvim-telescope/telescope.nvim', {'tag': '0.1.0'}
+Plug 'nvim-telescope/telescope.nvim', {'tag': '0.1.1'}
 Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
 Plug 'nvim-telescope/telescope-file-browser.nvim'
 Plug 'nvim-tree/nvim-web-devicons'
@@ -178,7 +178,7 @@ let g:black_virtualenv = '~/.vim_black'
 let g:ale_linters = {
 \       'cmake': ['cmake-language-server'],
 \       'c': ['clangd'],
-\       'cpp': ['clangd'],
+\       'cpp': ['clangd', 'clangtidy', 'clang'],
 \       'cuda': ['clangd'],
 \       'css': ['eslint'],
 \       'javascript': ['eslint'],
