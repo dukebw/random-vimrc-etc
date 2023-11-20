@@ -18,37 +18,30 @@ Plug 'tpope/vim-fugitive'
 Plug 'tpope/vim-git'
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-unimpaired'
-Plug 'myusuf3/numbers.vim'
-Plug 'zeis/vim-kolor'
-Plug 'flazz/vim-colorschemes'
-" NOTE(brendan): jedi-vim can sometimes get into a state where it lags a lot,
-" apparently requiring system reboot to resolve
-" Seems to go away with let g:jedi#show_call_signatures = "0"
-" See this thread: https://github.com/davidhalter/jedi-vim/issues/217
-Plug 'davidhalter/jedi-vim'
-Plug 'dylon/vim-antlr'
-Plug 'yegappan/mru'
 Plug 'mbbill/undotree'
 Plug 'leafgarland/typescript-vim'
 Plug 'pangloss/vim-javascript'
-Plug 'dense-analysis/ale'
 Plug 'lervag/vimtex'
-" Plug 'github/copilot.vim'
+Plug 'github/copilot.vim'
 Plug 'f-person/git-blame.nvim'
 Plug 'nvim-lua/plenary.nvim'
-Plug 'nvim-telescope/telescope.nvim'
+Plug 'nvim-telescope/telescope.nvim', { 'tag': '0.1.4' }
 Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
 Plug 'nvim-telescope/telescope-file-browser.nvim'
 Plug 'nvim-tree/nvim-web-devicons'
 Plug 'neovim/nvim-lspconfig'
 Plug 'sindrets/diffview.nvim'
+Plug 'rebelot/kanagawa.nvim'
+" Package manager.
+Plug 'williamboman/mason.nvim'
+Plug 'williamboman/mason-lspconfig.nvim'
 
 " All of your Plugins must be added before the following line
 call plug#end()            " required
 filetype plugin indent on
 syntax on
 
-colorscheme kolor
+colorscheme kanagawa-dragon
 
 " No highlight after search on Ctrl+N
 nmap <silent> <C-N> :silent noh<CR>
@@ -116,7 +109,6 @@ augroup END
 augroup formatting
 autocmd!
 autocmd BufWritePre *.sh :normal gg=G''
-autocmd BufWritePost *.mojo :silent !mblack %:p
 augroup END
 
 "Showmatch significantly slows down omnicomplete
@@ -153,8 +145,6 @@ let g:jedi#completions_enabled = 0
 let g:jedi#force_py_version = 3
 let g:jedi#show_call_signatures = "0"
 
-nnoremap <leader>l :syntax sync fromstart<CR>
-
 
 if &term =~ '256color'
     " Disable Background Color Erase (BCE) so that color schemes
@@ -173,45 +163,6 @@ let g:javascript_plugin_flow = 1
 let g:black_virtualenv = '~/.vim_black'
 
 " In ~/.vim/ftplugin/javascript.vim, or somewhere similar.
-
-" NOTE(brendan): ALE
-" Equivalent to the above.
-" TODO: pylsp
-let g:ale_linters = {
-\       'cmake': ['cmake-language-server'],
-\       'c': ['clangd'],
-\       'cpp': ['clangd', 'clangtidy', 'clang'],
-\       'cuda': ['clangd'],
-\       'css': ['eslint'],
-\       'javascript': ['eslint'],
-\       'python': ['mypy', 'flake8', 'pylint', 'pyright'],
-\       'tablegen': ['clangd'],
-\}
-" Only run linters named in ale_linters settings.
-let g:ale_linters_explicit = 0
-" Set this variable to 1 to fix files when you save them.
-let g:ale_fix_on_save = 1
-let g:ale_fixers = {
-\       '*': ['remove_trailing_lines', 'trim_whitespace'],
-\       'css': ['prettier'],
-\       'go': ['gofmt'],
-\       'html': ['prettier'],
-\       'javascript': ['eslint', 'prettier-eslint'],
-\       'python': ['black', 'isort'],
-\       'cpp': ['clang-format', 'clangtidy'],
-\       'cuda': ['clang-format'],
-\       'c': ['clang-format'],
-\       'tex': ['latexindent'],
-\}
-let g:ale_completion_enabled = 0
-let g:ale_completion_delay = 100
-let g:ale_lsp_suggestions = 1
-let g:ale_python_flake8_options = '--max-line-length=88'
-
-nmap <silent> <leader>g <Plug>(ale_go_to_definition)
-nmap <silent> <leader>d <Plug>(ale_go_to_implementation)
-nmap <silent> <leader>n <Plug>(ale_find_references)
-nmap <silent> <leader>s :ALESymbolSearch<space>
 
 au BufRead,BufNewFile *.bib setlocal nocindent
 
@@ -234,6 +185,7 @@ nnoremap <leader>ls <cmd>Telescope grep_string glob_pattern=!third-party prompt_
 nnoremap <leader>fh <cmd>Telescope help_tags<cr>
 nnoremap <leader>fg <cmd>Telescope live_grep<cr>
 nnoremap <leader>lg <cmd>Telescope live_grep glob_pattern=!third-party prompt_prefix=🔍<cr>
+nnoremap <leader>to <cmd>Telescope oldfiles<cr>
 
 lua require('telescope').load_extension('file_browser')
 lua require('telescope').setup { pickers = { find_files = { hidden = true } } }
@@ -307,22 +259,64 @@ nnoremap <leader>dc :DiffviewClose<CR>
 nnoremap <leader>df :DiffviewFocusFiles<CR>
 nnoremap <leader>do :DiffviewOpen<space>
 
+" Restart crashy LSP.
+nnoremap <leader>lr :LspRestart<CR>
+
 lua << EOF
+require("mason").setup()
+require("mason-lspconfig").setup()
+
 local lspconfig = require 'lspconfig'
 
-lspconfig.mojo.setup {
-  on_attach = function(client, bufnr)
+-- Common on_attach function for all LSPs
+local function on_attach(client, bufnr)
     local function buf_set_keymap(...) vim.api.nvim_buf_set_keymap(bufnr, ...) end
-    -- Go to definition.
-    buf_set_keymap('n', '<leader>g', '<cmd>lua vim.lsp.buf.definition()<CR>', { noremap=true, silent=false })
-    -- Hover.
-    buf_set_keymap('n', '<leader>h', '<cmd>lua vim.lsp.buf.hover()<CR>', { noremap=true, silent=true })
-    -- Find all references.
-    buf_set_keymap('n', '<leader>n', '<cmd>lua vim.lsp.buf.references()<CR>', { noremap=true, silent=true })
-    -- Apply formatting.
-    buf_set_keymap('n', '<leader>f', '<cmd>lua vim.lsp.buf.formatting()<CR>', { noremap=true, silent=true })
-    -- Rename symbol.
-    buf_set_keymap('n', '<leader>rn', '<cmd>lua vim.lsp.buf.rename()<CR>', { noremap=true, silent=true })
-  end,
-}
+
+    -- Key mappings
+    local keymap_settings = {
+        {'n', '<leader>g', '<cmd>lua vim.lsp.buf.definition()<CR>', { noremap=true, silent=false }},
+        {'n', '<leader>h', '<cmd>lua vim.lsp.buf.hover()<CR>', { noremap=true, silent=true }},
+        {'n', '<leader>n', '<cmd>lua vim.lsp.buf.references()<CR>', { noremap=true, silent=true }},
+        {'n', '<leader>f', '<cmd>lua vim.lsp.buf.formatting()<CR>', { noremap=true, silent=true }},
+        {'n', '<leader>rn', '<cmd>lua vim.lsp.buf.rename()<CR>', { noremap=true, silent=true }},
+        {'n', '<leader>dn', '<cmd>lua vim.diagnostic.goto_next()<CR>', { noremap=true, silent=true }},
+        {'n', '<leader>dp', '<cmd>lua vim.diagnostic.goto_prev()<CR>', { noremap=true, silent=true }},
+    }
+
+    -- Applying the key mappings
+    for _, keymap in ipairs(keymap_settings) do
+        buf_set_keymap(unpack(keymap))
+    end
+end
+
+-- Setup LSPs with common configurations
+local servers = {'mojo', 'clangd', 'jedi_language_server', 'pylsp', 'pyright'}
+for _, lsp in ipairs(servers) do
+    lspconfig[lsp].setup { on_attach = on_attach }
+end
+
+vim.api.nvim_create_autocmd("BufWritePre", {
+    buffer = buffer,
+    pattern = {"*.cpp", "*.hpp", "*.c", "*.h", ".cc", ".hh", ".cxx", ".hxx", "*.py"},
+    callback = function()
+        vim.lsp.buf.format { async = true }
+    end
+})
+
+vim.api.nvim_create_autocmd("BufWritePost", {
+    pattern = {"*.mojo"},
+    callback = function()
+        -- Save the current cursor position
+        local cursor_pos = vim.api.nvim_win_get_cursor(0)
+        -- Get the current buffer's file name
+        local file = vim.fn.expand('%:p')
+        -- Run mblack on the file
+        vim.cmd('silent! !mblack ' .. file)
+        -- Restore the cursor position
+        vim.api.nvim_win_set_cursor(0, cursor_pos)
+    end
+})
+
+-- Enable relative line numbers.
+vim.wo.relativenumber = true
 EOF
