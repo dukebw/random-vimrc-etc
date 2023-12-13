@@ -98,8 +98,8 @@ def install_configure(vm_ip: str):
     run_ssh_command(ssh_client, "sudo cp nvim-linux64/bin/nvim /usr/local/bin")
 
     # Configure neovim
-    run_ssh_command(ssh_client, "mkdir -p ~/work && git clone git@github.com:dukebw/random-vim-rc-etc ~/work/random-vim-rc-etc")
-    run_ssh_command(ssh_client, "mkdir -p ~/.config/nvim && cp ~/work/random-vim-rc-etc/init.vim ~/.config/nvim")
+    run_ssh_command(ssh_client, "mkdir -p ~/work && git clone git@github.com:dukebw/random-vimrc-etc ~/work/random-vimrc-etc")
+    run_ssh_command(ssh_client, "mkdir -p ~/.config/nvim && cp ~/work/random-vimrc-etc/init.vim ~/.config/nvim")
 
     # Copy SSH keys to VM
     run_local_command(
