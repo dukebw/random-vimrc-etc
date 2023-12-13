@@ -1,0 +1,29 @@
+# Use the setuptools build backend
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mdcm-setup"
+dependencies = [
+  "click >= 8.1",
+  "paramiko",
+]
+description = "MDCM setup script."
+readme = "README.md"
+requires-python = ">=3.8"
+version = "0.0.0"
+
+[project.entry-points.console_scripts]
+mdcm-setup = "mdcm_setup.cli:cli"
+
+[tool.black]
+include = '\.pyi?$'
+line-length = 88
+experimental-string-processing = true
+
+[tool.isort]
+profile = "black"
+
+[tool.setuptools.packages.find]
+where = ["src"]

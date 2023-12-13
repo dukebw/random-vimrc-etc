@@ -22,10 +22,10 @@ Plug 'mbbill/undotree'
 Plug 'leafgarland/typescript-vim'
 Plug 'pangloss/vim-javascript'
 Plug 'lervag/vimtex'
-Plug 'github/copilot.vim'
+" Plug 'github/copilot.vim'
 Plug 'f-person/git-blame.nvim'
 Plug 'nvim-lua/plenary.nvim'
-Plug 'nvim-telescope/telescope.nvim', { 'tag': '0.1.4' }
+Plug 'nvim-telescope/telescope.nvim', { 'tag': '0.1.5' }
 Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
 Plug 'nvim-telescope/telescope-file-browser.nvim'
 Plug 'nvim-tree/nvim-web-devicons'
@@ -184,6 +184,7 @@ nnoremap <leader>fs <cmd>Telescope grep_string<cr>
 nnoremap <leader>ls <cmd>Telescope grep_string glob_pattern=!third-party prompt_prefix=🔍<cr>
 nnoremap <leader>fh <cmd>Telescope help_tags<cr>
 nnoremap <leader>fg <cmd>Telescope live_grep<cr>
+nnoremap <leader>fx :Telescope live_grep glob_pattern=
 nnoremap <leader>lg <cmd>Telescope live_grep glob_pattern=!third-party prompt_prefix=🔍<cr>
 nnoremap <leader>to <cmd>Telescope oldfiles<cr>
 
@@ -262,6 +263,9 @@ nnoremap <leader>do :DiffviewOpen<space>
 " Restart crashy LSP.
 nnoremap <leader>lr :LspRestart<CR>
 
+" Max line length for syntax highlighting.
+set synmaxcol=1000000
+
 lua << EOF
 require("mason").setup()
 require("mason-lspconfig").setup()
@@ -278,6 +282,7 @@ local function on_attach(client, bufnr)
         {'n', '<leader>h', '<cmd>lua vim.lsp.buf.hover()<CR>', { noremap=true, silent=true }},
         {'n', '<leader>n', '<cmd>lua vim.lsp.buf.references()<CR>', { noremap=true, silent=true }},
         {'n', '<leader>f', '<cmd>lua vim.lsp.buf.formatting()<CR>', { noremap=true, silent=true }},
+        {'n', '<leader>s', '<cmd>lua vim.lsp.buf.workspace_symbol()<CR>', { noremap=true, silent=true }},
         {'n', '<leader>rn', '<cmd>lua vim.lsp.buf.rename()<CR>', { noremap=true, silent=true }},
         {'n', '<leader>dn', '<cmd>lua vim.diagnostic.goto_next()<CR>', { noremap=true, silent=true }},
         {'n', '<leader>dp', '<cmd>lua vim.diagnostic.goto_prev()<CR>', { noremap=true, silent=true }},
@@ -299,7 +304,7 @@ vim.api.nvim_create_autocmd("BufWritePre", {
     buffer = buffer,
     pattern = {"*.cpp", "*.hpp", "*.c", "*.h", ".cc", ".hh", ".cxx", ".hxx", "*.py"},
     callback = function()
-        vim.lsp.buf.format { async = true }
+        vim.lsp.buf.format { async = false }
     end
 })
 
