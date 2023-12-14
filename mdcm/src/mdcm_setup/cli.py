@@ -21,7 +21,9 @@ os_version = "22.04"
 
 def run_local_command(command):
     print(command)
-    process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    process = subprocess.Popen(
+        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
     stdout, stderr = process.communicate()
     if process.returncode != 0:
         print(f"Local command error: {stderr}")
@@ -29,6 +31,7 @@ def run_local_command(command):
 
     print(stdout.decode())
     return stdout
+
 
 # Function to execute remote commands via SSH
 
@@ -49,22 +52,25 @@ def run_ssh_command(ssh_client, command):
     return stdout.channel.recv_exit_status()
 
 
-@ click.group()
+@click.group()
 def cli():
     pass
 
 
-@ cli.command()
+@cli.command()
 def create_vm():
     """Create and start the VM."""
     run_local_command(f"mdcm volume create --name {volume_name} --size {volume_size}")
-    run_local_command(f"mdcm vm create -n {vm_name} -t {instance_type} -osver {os_version} -v {volume_name}")
+    run_local_command(
+        f"mdcm vm create -n {vm_name} -t {instance_type} -osver {os_version} -v"
+        f" {volume_name}"
+    )
     run_local_command(f"mdcm vm start --name {vm_name}")
     print(f"VM {vm_name} created and started.")
 
 
-@ cli.command()
-@ click.option("--vm-ip", type=str, required=True, help="IP address of the VM")
+@cli.command()
+@click.option("--vm-ip", type=str, required=True, help="IP address of the VM")
 def install_configure(vm_ip: str):
     """SSH into the VM and run install and configuration commands."""
     # SSH into the VM
@@ -78,15 +84,21 @@ def install_configure(vm_ip: str):
     run_ssh_command(ssh_client, "sudo passwd -d `whoami`")
     run_ssh_command(ssh_client, "sudo chsh -s $(which zsh)")
     run_ssh_command(
-        ssh_client, "curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -o install_oh_my_zsh.sh")
+        ssh_client,
+        (
+            "curl -fsSL"
+            " https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
+            " -o install_oh_my_zsh.sh"
+        ),
+    )
     run_ssh_command(ssh_client, "chmod +x install_oh_my_zsh.sh")
 
     expect_script = (
         "#!/usr/bin/expect\n"
         "set timeout 5\n"
-        "spawn sh -c \"./install_oh_my_zsh.sh\"\n"
-        "expect \"Do you want to change your default shell to zsh?\"\n"
-        "send \"y\\r\"\n"
+        'spawn sh -c "./install_oh_my_zsh.sh"\n'
+        'expect "Do you want to change your default shell to zsh?"\n'
+        'send "y\\r"\n'
         "expect eof\n"
     )
     # Creating the Expect script on the remote machine
@@ -96,33 +108,95 @@ def install_configure(vm_ip: str):
 
     # Copy SSH keys to VM
     run_local_command(
-        f"scp -o 'StrictHostKeyChecking=no' -i {str(key_path)} ~/.ssh/id_ed25519* {remote_username}@{vm_ip}:.ssh")
+        f"scp -o 'StrictHostKeyChecking=no' -i {str(key_path)} ~/.ssh/id_ed25519*"
+        f" {remote_username}@{vm_ip}:.ssh"
+    )
 
     # Install neovim
     if "c6g" in vm_name:
         # Install neovim from source.
-        run_ssh_command(ssh_client, "sudo apt install -y ninja-build gettext cmake unzip curl")
-        run_ssh_command(ssh_client, "curl -fsSL https://github.com/neovim/neovim/archive/refs/tags/v0.9.4.tar.gz -o nvim-v0.9.4.tar.gz && tar zxf nvim-v0.9.4.tar.gz && cd neovim-0.9.4 && make CMAKE_BUILD_TYPE=Release && sudo make install")
+        run_ssh_command(
+            ssh_client, "sudo apt install -y ninja-build gettext cmake unzip curl"
+        )
+        run_ssh_command(
+            ssh_client,
+            (
+                "curl -fsSL"
+                " https://github.com/neovim/neovim/archive/refs/tags/v0.9.4.tar.gz -o"
+                " nvim-v0.9.4.tar.gz && tar zxf nvim-v0.9.4.tar.gz && cd neovim-0.9.4"
+                " && make CMAKE_BUILD_TYPE=Release && sudo make install"
+            ),
+        )
     else:
         run_ssh_command(
-            ssh_client, "curl -fsSL https://github.com/neovim/neovim/releases/download/nightly/nvim-linux64.tar.gz -o nvim-linux64.tar.gz")
+            ssh_client,
+            (
+                "curl -fsSL"
+                " https://github.com/neovim/neovim/releases/download/nightly/nvim-linux64.tar.gz"
+                " -o nvim-linux64.tar.gz"
+            ),
+        )
         run_ssh_command(ssh_client, "tar zxf nvim-linux64.tar.gz")
         run_ssh_command(ssh_client, "sudo cp nvim-linux64/bin/nvim /usr/local/bin")
 
     # Configure neovim
-    gcl = "GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no' git clone --recurse-submodules"
+    gcl = (
+        "GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no' git clone"
+        " --recurse-submodules"
+    )
     run_ssh_command(
-        ssh_client, f"mkdir -p ~/work && {gcl} git@github.com:dukebw/random-vimrc-etc ~/work/random-vimrc-etc")
-    run_ssh_command(ssh_client, "mkdir -p ~/.config/nvim && cp ~/work/random-vimrc-etc/init.vim ~/.config/nvim")
+        ssh_client,
+        (
+            f"mkdir -p ~/work && {gcl} git@github.com:dukebw/random-vimrc-etc"
+            " ~/work/random-vimrc-etc"
+        ),
+    )
+    run_ssh_command(
+        ssh_client,
+        "mkdir -p ~/.config/nvim && cp ~/work/random-vimrc-etc/init.vim ~/.config/nvim",
+    )
 
     # Install vim-plug
     run_ssh_command(
-        ssh_client, "sh -c 'curl -fLo \"${XDG_DATA_HOME:-$HOME/.local/share}\"/nvim/site/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim'")
-    run_ssh_command(ssh_client, "nvim -c 'PlugUpgrade | PlugInstall | PlugUpdate | qa!'")
+        ssh_client,
+        (
+            "sh -c 'curl -fLo"
+            ' "${XDG_DATA_HOME:-$HOME/.local/share}"/nvim/site/autoload/plug.vim'
+            " --create-dirs"
+            " https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim'"
+        ),
+    )
+    run_ssh_command(
+        ssh_client, "nvim -c 'PlugUpgrade | PlugInstall | PlugUpdate | qa!'"
+    )
 
     # Perform final setup
     run_ssh_command(
-        ssh_client, f"cd /mnt/{vm_name}-volume && {gcl} git@github.com:modularml/modular && cd modular && source utils/start-modular.sh && install_python_deps && install_dev_deps")
+        ssh_client,
+        (
+            f"cd /mnt/{vm_name}-volume && {gcl} git@github.com:modularml/modular && cd"
+            " modular && source utils/start-modular.sh && install_python_deps &&"
+            " install_dev_deps"
+        ),
+    )
+    run_ssh_command(
+        ssh_client,
+        (
+            f"cd cd/mnt/{vm_name}-volume/modular/third-party/llvm-project/mlir && for FOLDER in autoload ftdetect"
+            " ftplugin indent syntax; do mkdir -p ~/.config/nvim/$FOLDER && ln -s"
+            " $MODULAR_PATH/utils/vim/$FOLDER/mlir.vim ~/.config/nvim/$FOLDER/mlir.vim;"
+            " done"
+        ),
+    )
+    run_ssh_command(
+        ssh_client,
+        (
+            f"cd cd/mnt/{vm_name}-volume/modular && for FOLDER in autoload ftdetect"
+            " ftplugin indent syntax; do mkdir -p ~/.config/nvim/$FOLDER && ln -s"
+            " $MODULAR_PATH/utils/vim/$FOLDER/mojo.vim ~/.config/nvim/$FOLDER/mojo.vim;"
+            " done"
+        ),
+    )
 
     ssh_client.close()
     print("Installation and configuration completed.")
@@ -130,5 +204,5 @@ def install_configure(vm_ip: str):
     os.system(f"ssh -i {key_path} {remote_username}@{vm_ip}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cli()
