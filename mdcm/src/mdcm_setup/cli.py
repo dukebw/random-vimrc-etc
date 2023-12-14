@@ -182,9 +182,9 @@ def install_configure(vm_ip: str):
     run_ssh_command(
         ssh_client,
         (
-            f"cd cd/mnt/{vm_name}-volume/modular/third-party/llvm-project/mlir && for FOLDER in autoload ftdetect"
+            f"cd cd/mnt/{vm_name}-volume/modular/third-party/llvm-project/mlir && for FOLDER in ftdetect"
             " ftplugin indent syntax; do mkdir -p ~/.config/nvim/$FOLDER && ln -s"
-            " $MODULAR_PATH/utils/vim/$FOLDER/mlir.vim ~/.config/nvim/$FOLDER/mlir.vim;"
+            " $(pwd)/utils/vim/$FOLDER/mlir.vim ~/.config/nvim/$FOLDER/mlir.vim;"
             " done"
         ),
     )
@@ -193,7 +193,7 @@ def install_configure(vm_ip: str):
         (
             f"cd cd/mnt/{vm_name}-volume/modular && for FOLDER in autoload ftdetect"
             " ftplugin indent syntax; do mkdir -p ~/.config/nvim/$FOLDER && ln -s"
-            " $MODULAR_PATH/utils/vim/$FOLDER/mojo.vim ~/.config/nvim/$FOLDER/mojo.vim;"
+            " $(pwd)/utils/vim/$FOLDER/mojo.vim ~/.config/nvim/$FOLDER/mojo.vim;"
             " done"
         ),
     )
