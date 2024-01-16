@@ -7,9 +7,6 @@ import click
 import paramiko
 
 # Define constants
-vm_name = "c6g.16xlarge"
-vm_ip = "18.118.164.188"  # Replace with the dynamic IP if needed
-key_path = Path(os.getenv("HOME")) / f"mdcm_keys/bduke-dev-it-{vm_name}-key.pem"
 remote_username = "ubuntu"
 volume_name = "bduke-intel-500"
 volume_size = 500
@@ -36,9 +33,9 @@ def run_local_command(command):
 # Function to execute remote commands via SSH
 
 
-def run_ssh_command(ssh_client, command):
+def run_ssh_command(ssh_client, command, timeout=None):
     print(command)
-    _, stdout, stderr = ssh_client.exec_command(command)
+    _, stdout, stderr = ssh_client.exec_command(command, timeout=timeout)
 
     # Continuously read and print stdout
     for line in iter(stdout.readline, ""):
@@ -58,7 +55,8 @@ def cli():
 
 
 @cli.command()
-def create_vm():
+@click.option("--vm-name", type=str, default="c6i.16xlarge", help="Name of the VM")
+def create_vm(vm_name: str):
     """Create and start the VM."""
     run_local_command(f"mdcm volume create --name {volume_name} --size {volume_size}")
     run_local_command(
@@ -71,8 +69,11 @@ def create_vm():
 
 @cli.command()
 @click.option("--vm-ip", type=str, required=True, help="IP address of the VM")
-def install_configure(vm_ip: str):
+@click.option("--vm-name", type=str, default="c6i.16xlarge", help="Name of the VM")
+def install_configure(vm_ip: str, vm_name: str):
     """SSH into the VM and run install and configuration commands."""
+    key_path = Path(os.getenv("HOME")) / f"mdcm_keys/bduke-dev-it-{vm_name}-key.pem"
+
     # SSH into the VM
     ssh_client = paramiko.SSHClient()
     ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -137,7 +138,7 @@ def install_configure(vm_ip: str):
             ),
         )
         run_ssh_command(ssh_client, "tar zxf nvim-linux64.tar.gz")
-        run_ssh_command(ssh_client, "sudo cp nvim-linux64/bin/nvim /usr/local/bin")
+        run_ssh_command(ssh_client, "sudo ln -s $(pwd)/nvim-linux64/bin/nvim /usr/local/bin")
 
     # Configure neovim
     gcl = (
@@ -166,8 +167,9 @@ def install_configure(vm_ip: str):
             " https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim'"
         ),
     )
+    # Set a timeout since this seems to hang.
     run_ssh_command(
-        ssh_client, "nvim -c 'PlugUpgrade | PlugInstall | PlugUpdate | qa!'"
+        ssh_client, "nvim -c 'PlugUpgrade | PlugInstall | PlugUpdate | qa!'", timeout=30
     )
 
     # Perform final setup
