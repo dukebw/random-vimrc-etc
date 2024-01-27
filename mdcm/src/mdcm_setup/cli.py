@@ -72,7 +72,9 @@ def create_vm(vm_name: str):
 @click.option("--vm-name", type=str, default="c6i.16xlarge", help="Name of the VM")
 def install_configure(vm_ip: str, vm_name: str):
     """SSH into the VM and run install and configuration commands."""
-    key_path = Path(os.getenv("HOME")) / f"mdcm_keys/bduke-dev-it-{vm_name}-key.pem"
+    home_dir = Path(os.getenv("HOME"))
+    key_path = home_dir / ".ssh" / "mdcm.pem"
+    work_dir = home_dir / "work"
 
     # SSH into the VM
     ssh_client = paramiko.SSHClient()
@@ -176,7 +178,7 @@ def install_configure(vm_ip: str, vm_name: str):
     run_ssh_command(
         ssh_client,
         (
-            f"cd /mnt/{vm_name}-volume && {gcl} git@github.com:modularml/modular && cd"
+            f"cd {work_dir} && {gcl} git@github.com:modularml/modular && cd"
             " modular && source utils/start-modular.sh && install_python_deps &&"
             " install_dev_deps"
         ),
@@ -184,7 +186,7 @@ def install_configure(vm_ip: str, vm_name: str):
     run_ssh_command(
         ssh_client,
         (
-            f"cd cd/mnt/{vm_name}-volume/modular/third-party/llvm-project/mlir && for FOLDER in ftdetect"
+            f"cd {work_dir}/modular/third-party/llvm-project/mlir && for FOLDER in ftdetect"
             " ftplugin indent syntax; do mkdir -p ~/.config/nvim/$FOLDER && ln -s"
             " $(pwd)/utils/vim/$FOLDER/mlir.vim ~/.config/nvim/$FOLDER/mlir.vim;"
             " done"
@@ -193,7 +195,7 @@ def install_configure(vm_ip: str, vm_name: str):
     run_ssh_command(
         ssh_client,
         (
-            f"cd cd/mnt/{vm_name}-volume/modular && for FOLDER in autoload ftdetect"
+            f"cd {work_dir}/modular && for FOLDER in autoload ftdetect"
             " ftplugin indent syntax; do mkdir -p ~/.config/nvim/$FOLDER && ln -s"
             " $(pwd)/utils/mojo/vim/$FOLDER/mojo.vim ~/.config/nvim/$FOLDER/mojo.vim;"
             " done"
