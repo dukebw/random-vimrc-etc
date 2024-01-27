@@ -1,5 +1,6 @@
 """Create and configure MDCM instance."""
 import os
+import socket
 import subprocess
 from pathlib import Path
 
@@ -35,18 +36,21 @@ def run_local_command(command):
 
 def run_ssh_command(ssh_client, command, timeout=None):
     print(command)
-    _, stdout, stderr = ssh_client.exec_command(command, timeout=timeout)
+    try:
+        _, stdout, stderr = ssh_client.exec_command(command, timeout=timeout)
 
-    # Continuously read and print stdout
-    for line in iter(stdout.readline, ""):
-        print(line, end="")
+        # Continuously read and print stdout
+        for line in iter(stdout.readline, ""):
+            print(line, end="")
 
-    # Check for any errors
-    error_output = stderr.read().decode()
-    if error_output:
-        print(f"SSH command error: {error_output}")
+        # Check for any errors
+        error_output = stderr.read().decode()
+        if error_output:
+            print(f"SSH command error: {error_output}")
 
-    return stdout.channel.recv_exit_status()
+            stdout.channel.recv_exit_status()
+    except socket.timeout:
+        print("Command timed out.")
 
 
 @click.group()
@@ -72,9 +76,9 @@ def create_vm(vm_name: str):
 @click.option("--vm-name", type=str, default="c6i.16xlarge", help="Name of the VM")
 def install_configure(vm_ip: str, vm_name: str):
     """SSH into the VM and run install and configuration commands."""
-    home_dir = Path(os.getenv("HOME"))
-    key_path = home_dir / ".ssh" / "mdcm.pem"
-    work_dir = home_dir / "work"
+    local_home_dir = Path(os.getenv("HOME"))
+    key_path = local_home_dir / ".ssh" / "mdcm.pem"
+    remote_work_dir = "~/work"
 
     # SSH into the VM
     ssh_client = paramiko.SSHClient()
@@ -140,7 +144,9 @@ def install_configure(vm_ip: str, vm_name: str):
             ),
         )
         run_ssh_command(ssh_client, "tar zxf nvim-linux64.tar.gz")
-        run_ssh_command(ssh_client, "sudo ln -s $(pwd)/nvim-linux64/bin/nvim /usr/local/bin")
+        run_ssh_command(
+            ssh_client, "sudo ln -s $(pwd)/nvim-linux64/bin/nvim /usr/local/bin"
+        )
 
     # Configure neovim
     gcl = (
@@ -178,7 +184,7 @@ def install_configure(vm_ip: str, vm_name: str):
     run_ssh_command(
         ssh_client,
         (
-            f"cd {work_dir} && {gcl} git@github.com:modularml/modular && cd"
+            f"cd {remote_work_dir} && {gcl} git@github.com:modularml/modular && cd"
             " modular && source utils/start-modular.sh && install_python_deps &&"
             " install_dev_deps"
         ),
@@ -186,16 +192,16 @@ def install_configure(vm_ip: str, vm_name: str):
     run_ssh_command(
         ssh_client,
         (
-            f"cd {work_dir}/modular/third-party/llvm-project/mlir && for FOLDER in ftdetect"
-            " ftplugin indent syntax; do mkdir -p ~/.config/nvim/$FOLDER && ln -s"
-            " $(pwd)/utils/vim/$FOLDER/mlir.vim ~/.config/nvim/$FOLDER/mlir.vim;"
+            f"cd {remote_work_dir}/modular/third-party/llvm-project/mlir && for FOLDER in"
+            " ftdetect ftplugin indent syntax; do mkdir -p ~/.config/nvim/$FOLDER &&"
+            " ln -s $(pwd)/utils/vim/$FOLDER/mlir.vim ~/.config/nvim/$FOLDER/mlir.vim;"
             " done"
         ),
     )
     run_ssh_command(
         ssh_client,
         (
-            f"cd {work_dir}/modular && for FOLDER in autoload ftdetect"
+            f"cd {remote_work_dir}/modular && for FOLDER in autoload ftdetect"
             " ftplugin indent syntax; do mkdir -p ~/.config/nvim/$FOLDER && ln -s"
             " $(pwd)/utils/mojo/vim/$FOLDER/mojo.vim ~/.config/nvim/$FOLDER/mojo.vim;"
             " done"
