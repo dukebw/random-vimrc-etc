@@ -129,8 +129,8 @@ def install_configure(vm_ip: str, vm_name: str):
             ssh_client,
             (
                 "curl -fsSL"
-                " https://github.com/neovim/neovim/archive/refs/tags/v0.9.4.tar.gz -o"
-                " nvim-v0.9.4.tar.gz && tar zxf nvim-v0.9.4.tar.gz && cd neovim-0.9.4"
+                " https://github.com/neovim/neovim/archive/refs/tags/v0.9.5.tar.gz -o"
+                " nvim-v0.9.5.tar.gz && tar zxf nvim-v0.9.5.tar.gz && cd neovim-0.9.5"
                 " && make CMAKE_BUILD_TYPE=Release && sudo make install"
             ),
         )
@@ -141,7 +141,7 @@ def install_configure(vm_ip: str, vm_name: str):
             ssh_client,
             (
                 "curl -fsSL"
-                " https://github.com/neovim/neovim/releases/download/nightly/nvim-linux64.tar.gz"
+                " https://github.com/neovim/neovim/releases/download/v0.9.5/nvim-linux64.tar.gz"
                 " -o nvim-linux64.tar.gz"
             ),
         )

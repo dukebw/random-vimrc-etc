@@ -295,10 +295,20 @@ local function on_attach(client, bufnr)
 end
 
 -- Setup LSPs with common configurations
-local servers = {'mojo', 'clangd', 'jedi_language_server', 'pylsp', 'pyright'}
+local servers = {'clangd', 'jedi_language_server', 'pylsp', 'pyright'}
 for _, lsp in ipairs(servers) do
     lspconfig[lsp].setup { on_attach = on_attach }
 end
+
+local util = require 'lspconfig.util'
+
+lspconfig.mojo.setup {
+  cmd = { 'mojo-lsp-server', '--parse-stdlib' },
+  filetypes = { 'mojo' },
+  root_dir = util.find_git_ancestor,
+  single_file_support = true,
+  on_attach = on_attach,
+}
 
 vim.api.nvim_create_autocmd("BufWritePre", {
     buffer = buffer,
