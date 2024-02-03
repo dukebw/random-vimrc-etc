@@ -266,6 +266,9 @@ nnoremap <leader>lr :LspRestart<CR>
 " Max line length for syntax highlighting.
 set synmaxcol=1000000
 
+" Set clipboard for copy paste.
+set clipboard=unnamedplus
+
 lua << EOF
 require("mason").setup()
 require("mason-lspconfig").setup()

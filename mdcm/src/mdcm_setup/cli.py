@@ -87,7 +87,7 @@ def install_configure(vm_ip: str, vm_name: str):
 
     # Update and install oh-my-zsh
     run_ssh_command(ssh_client, "sudo apt update && sudo apt upgrade -y")
-    run_ssh_command(ssh_client, "sudo apt install -y expect zsh")
+    run_ssh_command(ssh_client, "sudo apt install -y expect xclip zsh")
     run_ssh_command(ssh_client, "sudo passwd -d `whoami`")
     run_ssh_command(ssh_client, "sudo chsh -s $(which zsh)")
     run_ssh_command(
