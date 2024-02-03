@@ -135,6 +135,8 @@ def install_configure(vm_ip: str, vm_name: str):
             ),
         )
     else:
+        # TODO: this should be in install-dependencies.py
+        run_ssh_command(ssh_client, "sudo apt install -y libtbb-dev")
         run_ssh_command(
             ssh_client,
             (
@@ -205,6 +207,15 @@ def install_configure(vm_ip: str, vm_name: str):
             " ftplugin indent syntax; do mkdir -p ~/.config/nvim/$FOLDER && ln -s"
             " $(pwd)/utils/mojo/vim/$FOLDER/mojo.vim ~/.config/nvim/$FOLDER/mojo.vim;"
             " done"
+        ),
+    )
+
+    run_ssh_command(
+        ssh_client,
+        (
+            'sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" && '
+            "sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang 100 && "
+            "sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++ 100"
         ),
     )
 
