@@ -200,6 +200,16 @@ def install_configure(vm_ip: str, vm_name: str):
             " done"
         ),
     )
+    for filetype in ["tablegen", "llvm", "llvm-lit", "mir"]:
+        run_ssh_command(
+            ssh_client,
+            (
+                f"cd {remote_work_dir}/modular/third-party/llvm-project/llvm && for FOLDER in"
+                " ftdetect ftplugin indent syntax; do mkdir -p ~/.config/nvim/$FOLDER &&"
+                f" ln -s $(pwd)/utils/vim/$FOLDER/{filetype}.vim ~/.config/nvim/$FOLDER/{filetype}.vim;"
+                " done"
+            ),
+        )
     run_ssh_command(
         ssh_client,
         (
