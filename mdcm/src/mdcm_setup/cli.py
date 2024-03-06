@@ -120,10 +120,11 @@ def install_configure(vm_ip: str, vm_name: str):
     )
 
     # Install neovim
-    if "c6g" in vm_name:
+    is_graviton = ("c6g" in vm_name) or ("c7g" in vm_name)
+    if is_graviton:
         # Install neovim from source.
         run_ssh_command(
-            ssh_client, "sudo apt install -y ninja-build gettext cmake unzip curl"
+            ssh_client, "sudo apt install -y ninja-build gettext cmake unzip curl fd-find"
         )
         run_ssh_command(
             ssh_client,
@@ -220,12 +221,39 @@ def install_configure(vm_ip: str, vm_name: str):
         ),
     )
 
+    # TODO: LLVM 16 works on c7g, but not LLVM 18.
+    if not ("c7g" in vm_name):
+        run_ssh_command(
+            ssh_client,
+            (
+                'sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"'
+            ),
+        )
     run_ssh_command(
         ssh_client,
         (
-            'sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" && '
             "sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang 100 && "
             "sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++ 100"
+        ),
+    )
+
+    run_ssh_command(
+        ssh_client,
+        (
+            "git config --global user.name 'Brendan Duke' && git config --global user.email 'bduke@modular.com'"
+        ),
+    )
+    run_ssh_command(
+        ssh_client,
+        (
+            "echo 'alias fdh=\"fdfind --hidden --no-ignore\"' >> ~/.zshrc &&"
+            "echo 'export EDITOR=nvim' >> ~/.zshrc"
+        ),
+    )
+    run_ssh_command(
+        ssh_client,
+        (
+            "sed -i 's/plugins=(git)/plugins=(git vi-mode)/' ~/.zshrc"
         ),
     )
 
