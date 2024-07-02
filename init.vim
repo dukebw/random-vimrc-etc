@@ -106,11 +106,6 @@ augroup syntax_generic
         au BufRead,BufNewFile *.proto3 set filetype=proto
 augroup END
 
-augroup formatting
-autocmd!
-autocmd BufWritePre *.sh :normal gg=G''
-augroup END
-
 "Showmatch significantly slows down omnicomplete
 "when the first match contains parentheses.
 set noshowmatch
@@ -298,15 +293,21 @@ local function on_attach(client, bufnr)
 end
 
 -- Setup LSPs with common configurations
-local servers = {'clangd', 'jedi_language_server', 'pylsp', 'pyright'}
+local servers = {'clangd', 'jedi_language_server', 'marksman', 'mojo', 'pylsp', 'pyright'}
 for _, lsp in ipairs(servers) do
     lspconfig[lsp].setup { on_attach = on_attach }
 end
 
 local util = require 'lspconfig.util'
 
+local modular_path = os.getenv("MODULAR_PATH")
+local bazelw = modular_path .. "/bazelw"
+
 lspconfig.mojo.setup {
-  cmd = { 'mojo-lsp-server', '--parse-stdlib' },
+  cmd = {
+    bazelw,
+    'run', '//KGEN/tools/mojo-lsp-server'
+  },
   filetypes = { 'mojo' },
   root_dir = util.find_git_ancestor,
   single_file_support = true,
@@ -315,14 +316,14 @@ lspconfig.mojo.setup {
 
 vim.api.nvim_create_autocmd("BufWritePre", {
     buffer = buffer,
-    pattern = {"*.cpp", "*.hpp", "*.c", "*.h", ".cc", ".hh", ".cxx", ".hxx", "*.py"},
+    pattern = {"*.cpp", "*.hpp", "*.c", "*.h", ".cc", ".hh", ".cxx", ".hxx", "*.py", "*.sh"},
     callback = function()
         vim.lsp.buf.format { async = false }
     end
 })
 
 vim.api.nvim_create_autocmd("BufWritePost", {
-    pattern = {"*.mojo"},
+    pattern = {"*.mojo", "*.🔥"},
     callback = function()
         -- Save the current cursor position
         local cursor_pos = vim.api.nvim_win_get_cursor(0)
