@@ -264,6 +264,41 @@ set synmaxcol=1000000
 " Set clipboard for copy paste.
 set clipboard=unnamedplus
 
+" Follow symlinks to appease clangd.
+function! FollowSymlink()
+  let fname = expand('%:p')
+  if getftype(fname) == 'link'
+    let resolvedfile = resolve(fname)
+    let cur_pos = getcurpos()
+
+    " Close any LSP connections
+    if exists('*LspStop')
+      call LspStop()
+    endif
+
+    " Wipe out the current buffer
+    let cur_buf = bufnr('%')
+    execute 'bwipeout! ' . cur_buf
+
+    " Edit the resolved file
+    execute 'edit ' . fnameescape(resolvedfile)
+
+    " Restore cursor position
+    call setpos('.', cur_pos)
+
+    " Restart LSP if it was active
+    if exists('*LspStart')
+      call LspStart()
+    endif
+
+    echom "Followed symlink: " . resolvedfile
+  else
+    echom "Not a symlink"
+  endif
+endfunction
+
+command! FollowSymlink call FollowSymlink()
+
 lua << EOF
 require("mason").setup()
 require("mason-lspconfig").setup()
