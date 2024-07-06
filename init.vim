@@ -328,7 +328,7 @@ local function on_attach(client, bufnr)
 end
 
 -- Setup LSPs with common configurations
-local servers = {'clangd', 'jedi_language_server', 'marksman', 'mojo', 'pylsp', 'pyright'}
+local servers = {'bzl', 'clangd', 'jedi_language_server', 'marksman', 'mojo', 'pylsp', 'pyright'}
 for _, lsp in ipairs(servers) do
     lspconfig[lsp].setup { on_attach = on_attach }
 end
@@ -344,6 +344,19 @@ lspconfig.mojo.setup {
     'run', '//KGEN/tools/mojo-lsp-server'
   },
   filetypes = { 'mojo' },
+  root_dir = util.find_git_ancestor,
+  single_file_support = true,
+  on_attach = on_attach,
+}
+
+--- Set up Bazel LSP.
+local bazel_lsp = "/home/ubuntu/.cache/bazel/_bazel_ubuntu/dcddefca2a2b2bd8462a64e331af35cd/execroot/_main/bazel-out/aarch64-opt/bin/bazel-lsp"
+
+lspconfig.bzl.setup {
+  cmd = {
+    bazel_lsp,
+  },
+  filetypes = { 'bzl' },
   root_dir = util.find_git_ancestor,
   single_file_support = true,
   on_attach = on_attach,
