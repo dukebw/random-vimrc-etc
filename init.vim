@@ -25,7 +25,7 @@ Plug 'lervag/vimtex'
 " Plug 'github/copilot.vim'
 Plug 'f-person/git-blame.nvim'
 Plug 'nvim-lua/plenary.nvim'
-Plug 'nvim-telescope/telescope.nvim', { 'tag': '0.1.5' }
+Plug 'nvim-telescope/telescope.nvim', { 'tag': '0.1.8' }
 Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
 Plug 'nvim-telescope/telescope-file-browser.nvim'
 Plug 'nvim-tree/nvim-web-devicons'
@@ -226,8 +226,12 @@ function! LiveGrepMlir()
 endfunction
 
 nnoremap <leader>mg :call LiveGrepMlir()<CR>
+
 " Find files in the third-party/llvm-project/mlir directory.
 nnoremap <leader>mf <cmd>Telescope find_files find_command=rg,--ignore,--hidden,--files,--glob,third-party/llvm-project/mlir/**/* prompt_prefix=🔍<cr>
+
+" Find files in the bazel-out directory.
+nnoremap <leader>bzf <cmd>Telescope find_files find_command=rg,--follow,-uuu,--hidden,--files,--glob,external/**/* prompt_prefix=🔍<cr>
 
 " mblack
 function! RunMBlack()
@@ -269,26 +273,44 @@ function! FollowSymlink()
   let fname = expand('%:p')
   if getftype(fname) == 'link'
     let resolvedfile = resolve(fname)
+    let cur_win = winnr()
     let cur_pos = getcurpos()
 
-    " Close any LSP connections
-    if exists('*LspStop')
-      call LspStop()
-    endif
+    " Store information about all windows
+    let win_info = []
+    windo call add(win_info, [winnr(), bufname('%'), getcurpos()])
 
-    " Wipe out the current buffer
-    let cur_buf = bufnr('%')
-    execute 'bwipeout! ' . cur_buf
+    " Go back to the original window
+    execute cur_win . 'wincmd w'
 
     " Edit the resolved file
-    execute 'edit ' . fnameescape(resolvedfile)
+    execute 'keepalt edit ' . fnameescape(resolvedfile)
 
     " Restore cursor position
     call setpos('.', cur_pos)
 
-    " Restart LSP if it was active
-    if exists('*LspStart')
-      call LspStart()
+    " Restore all other windows
+    for [win, bufname, pos] in win_info
+      if win != cur_win
+        execute win . 'wincmd w'
+        if bufname != resolvedfile
+          execute 'buffer ' . bufname
+          call setpos('.', pos)
+        endif
+      endif
+    endfor
+
+    " Go back to the original window
+    execute cur_win . 'wincmd w'
+
+    " Update the buffer name to the resolved file
+    execute 'file ' . fnameescape(resolvedfile)
+
+    " Refresh buffer to ensure it's linked to the correct file
+    edit
+
+    if exists('b:lsp_connected')
+      LspRestart
     endif
 
     echom "Followed symlink: " . resolvedfile
@@ -299,13 +321,15 @@ endfunction
 
 command! FollowSymlink call FollowSymlink()
 
+nnoremap <leader>sy :FollowSymlink<CR>
+
 lua << EOF
 require("mason").setup()
 require("mason-lspconfig").setup()
 
 local lspconfig = require 'lspconfig'
 
--- Common on_attach function for all LSPs
+-- Common on_attach function for all LSPs.
 local function on_attach(client, bufnr)
     local function buf_set_keymap(...) vim.api.nvim_buf_set_keymap(bufnr, ...) end
 
@@ -327,7 +351,7 @@ local function on_attach(client, bufnr)
     end
 end
 
--- Setup LSPs with common configurations
+-- Set up LSPs with common configurations.
 local servers = {'bzl', 'clangd', 'jedi_language_server', 'marksman', 'mojo', 'pylsp', 'pyright'}
 for _, lsp in ipairs(servers) do
     lspconfig[lsp].setup { on_attach = on_attach }
@@ -337,11 +361,17 @@ local util = require 'lspconfig.util'
 
 local modular_path = os.getenv("MODULAR_PATH")
 local bazelw = modular_path .. "/bazelw"
+local stdlib = modular_path .. "/open-source/mojo/stdlib"
+local max = modular_path .. "/SDK/lib/API/mojo"
+local kernels = modular_path .. "/Kernels/mojo"
 
 lspconfig.mojo.setup {
   cmd = {
     bazelw,
-    'run', '//KGEN/tools/mojo-lsp-server'
+    'run', '//KGEN/tools/mojo-lsp-server', '--',
+    '-I', stdlib,
+    '-I', max,
+    '-I', kernels,
   },
   filetypes = { 'mojo' },
   root_dir = util.find_git_ancestor,
