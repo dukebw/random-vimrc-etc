@@ -35,6 +35,8 @@ Plug 'rebelot/kanagawa.nvim'
 " Package manager.
 Plug 'williamboman/mason.nvim'
 Plug 'williamboman/mason-lspconfig.nvim'
+" Semantic highlighting for Python.
+Plug 'numirias/semshi', { 'do': ':UpdateRemotePlugins' }
 
 " All of your Plugins must be added before the following line
 call plug#end()            " required
@@ -323,6 +325,30 @@ command! FollowSymlink call FollowSymlink()
 
 nnoremap <leader>sy :FollowSymlink<CR>
 
+" Override Semshi semantic highlighting colours.
+function! MyCustomHighlights()
+  " I changed guifg over to kanagawa.nvim/lua/kanagawa/colors.lua.
+  " Whatever was closest.
+  hi semshiLocal           ctermfg=209 guifg=#ff875f
+  hi semshiGlobal          ctermfg=214 guifg=#8992a7
+  hi semshiImported        ctermfg=214 guifg=#87a987 cterm=bold gui=bold
+  hi semshiParameter       ctermfg=75  guifg=#a6a69c
+  hi semshiParameterUnused ctermfg=117 guifg=#737c73 cterm=underline gui=underline
+  hi semshiFree            ctermfg=218 guifg=#e82424
+  hi semshiBuiltin         ctermfg=207 guifg=#c4746e
+  hi semshiAttribute       ctermfg=49  guifg=#c4b28a
+  hi semshiSelf            ctermfg=249 guifg=#949fb5
+  hi semshiUnresolved      ctermfg=226 guifg=#f2ecbc cterm=underline gui=underline
+  hi semshiSelected        ctermfg=231 guifg=#f9d791 ctermbg=161 guibg=#d7005f
+
+  hi semshiErrorSign       ctermfg=231 guifg=#FFA066 ctermbg=160 guibg=#d70000
+  hi semshiErrorChar       ctermfg=231 guifg=#FFA066 ctermbg=160 guibg=#d70000
+  sign define semshiError text=E> texthl=semshiErrorSign
+endfunction
+autocmd FileType python call MyCustomHighlights()
+
+let g:semshi#always_update_all_highlights = v:true
+
 lua << EOF
 require("mason").setup()
 require("mason-lspconfig").setup()
@@ -352,7 +378,7 @@ local function on_attach(client, bufnr)
 end
 
 -- Set up LSPs with common configurations.
-local servers = {'bzl', 'clangd', 'jedi_language_server', 'marksman', 'mojo', 'pylsp', 'pyright'}
+local servers = {'bzl', 'clangd', 'marksman', 'mojo', 'pylsp'}
 for _, lsp in ipairs(servers) do
     lspconfig[lsp].setup { on_attach = on_attach }
 end
