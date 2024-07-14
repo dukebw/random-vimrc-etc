@@ -36,7 +36,7 @@ Plug 'rebelot/kanagawa.nvim'
 Plug 'williamboman/mason.nvim'
 Plug 'williamboman/mason-lspconfig.nvim'
 " Semantic highlighting for Python.
-Plug 'numirias/semshi', { 'do': ':UpdateRemotePlugins' }
+Plug 'wokoayin/semshi', { 'do': ':UpdateRemotePlugins' }
 
 " All of your Plugins must be added before the following line
 call plug#end()            " required
