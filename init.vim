@@ -36,7 +36,12 @@ Plug 'rebelot/kanagawa.nvim'
 Plug 'williamboman/mason.nvim'
 Plug 'williamboman/mason-lspconfig.nvim'
 " Semantic highlighting for Python.
-Plug 'numirias/semshi', { 'do': ':UpdateRemotePlugins' }
+Plug 'wookayin/semshi', { 'do': ':UpdateRemotePlugins', 'tag': '*' }
+" nvim debugger
+Plug 'mfussenegger/nvim-dap'
+Plug 'nvim-neotest/nvim-nio'
+Plug 'rcarriga/nvim-dap-ui'
+Plug 'theHamsta/nvim-dap-virtual-text'
 
 " All of your Plugins must be added before the following line
 call plug#end()            " required
@@ -254,6 +259,8 @@ nnoremap <leader>bl :GitBlameOpenCommitURL<CR>
 " change window width
 nnoremap + 5<C-w>>
 nnoremap _ 5<C-w><
+nnoremap <leader>+ 5<C-w>+
+nnoremap <leader>_ 5<C-w>-
 
 " diffview.nvim keybindings.
 nnoremap <leader>dh :DiffviewFileHistory<CR>
@@ -267,7 +274,6 @@ nnoremap <leader>lr :LspRestart<CR>
 " Max line length for syntax highlighting.
 set synmaxcol=1000000
 
-" Set clipboard for copy paste.
 set clipboard=unnamedplus
 
 " Follow symlinks to appease clangd.
@@ -348,6 +354,7 @@ endfunction
 autocmd FileType python call MyCustomHighlights()
 
 let g:semshi#always_update_all_highlights = v:true
+let g:semshi#update_delay_factor = 0.0001
 
 lua << EOF
 require("mason").setup()
@@ -378,10 +385,28 @@ local function on_attach(client, bufnr)
 end
 
 -- Set up LSPs with common configurations.
-local servers = {'bzl', 'clangd', 'marksman', 'mojo', 'pylsp'}
+local servers = {'bzl', 'clangd', 'marksman', 'mojo'}
 for _, lsp in ipairs(servers) do
     lspconfig[lsp].setup { on_attach = on_attach }
 end
+
+lspconfig['pylsp'].setup {
+    on_attach = on_attach,
+    settings = {
+        pylsp = {
+            plugins = {
+                jedi = {
+                    environment = vim.fn.expand('$MODULAR_DERIVED_PATH/autovenv/bin/python')
+                }
+            }
+        }
+    },
+    before_init = function(_, config)
+        local path_to_append = "/home/ubuntu/.cache/bazel/_bazel_ubuntu/a5171e680520db7be14c4ce5f82e546f/execroot/_main/bazel-out/aarch64-dbg/bin/SDK/lib/GraphAPI/python/max_graph_editable"
+        config.env = config.env or {}
+        config.env.PYTHONPATH = ((config.env.PYTHONPATH and (config.env.PYTHONPATH .. ":")) or "") .. path_to_append
+    end
+}
 
 local util = require 'lspconfig.util'
 
@@ -442,4 +467,87 @@ vim.api.nvim_create_autocmd("BufWritePost", {
 
 -- Enable relative line numbers.
 vim.wo.relativenumber = true
+
+-- nvim-dap:
+-- https://github.com/mfussenegger/nvim-dap/wiki/Debug-Adapter-installation#ccrust-via-lldb-vscode
+local dap = require('dap')
+local dapui = require('dapui')
+
+dap.listeners.after.event_initialized["dapui_config"] = function()
+  dapui.open()
+end
+dap.listeners.before.event_terminated["dapui_config"] = function()
+  dapui.close()
+end
+dap.listeners.before.event_exited["dapui_config"] = function()
+  dapui.close()
+end
+
+dap.adapters.lldb = {
+  type = 'executable',
+  command = '/usr/bin/lldb-dap', -- must be absolute path
+  name = 'lldb'
+}
+
+dap.configurations.cpp = {
+  {
+    name = 'Launch',
+    type = 'lldb',
+    request = 'launch',
+    program = function()
+      return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
+    end,
+    cwd = '${workspaceFolder}',
+    stopOnEntry = false,
+    args = function()
+      local input = vim.fn.input('Args: ')
+      return vim.split(input, " ")
+    end,
+
+    -- 💀
+    -- if you change `runInTerminal` to true, you might need to change the yama/ptrace_scope setting:
+    --
+    --    echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
+    --
+    -- Otherwise you might get the following error:
+    --
+    --    Error on launch: Failed to attach to the target process
+    --
+    -- But you should be aware of the implications:
+    -- https://www.kernel.org/doc/html/latest/admin-guide/LSM/Yama.html
+    -- runInTerminal = false,
+  },
+}
+
+-- nvim dap UI
+dapui.setup()
+require("nvim-dap-virtual-text").setup()
+
+-- Use the same DAP configuration for C and Rust.
+dap.configurations.c = dap.configurations.cpp
+dap.configurations.rust = dap.configurations.cpp
+
+-- Set up keybindings.
+vim.api.nvim_set_keymap('n', '<leader>wc', "<Cmd>lua require'dap'.continue()<CR>", { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>wn', "<Cmd>lua require'dap'.step_over()<CR>", { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>ws', "<Cmd>lua require'dap'.step_into()<CR>", { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>wS', "<Cmd>lua require'dap'.step_out()<CR>", { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>wb', "<Cmd>lua require'dap'.toggle_breakpoint()<CR>", { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>wB', "<Cmd>lua require'dap'.set_breakpoint(vim.fn.input('Breakpoint condition: '))<CR>", { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>wp', "<Cmd>lua require'dap'.set_breakpoint(nil, nil, vim.fn.input('Log point message: '))<CR>", { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>wr', "<Cmd>lua require'dap'.repl.open()<CR>", { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>wl', "<Cmd>lua require'dap'.run_last()<CR>", { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>wt', "<Cmd>lua require'dap'.terminate()<CR>", { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>wui', "<Cmd>lua require'dapui'.toggle()<CR>", { noremap = true, silent = true })
+
+require'nvim-treesitter.configs'.setup {
+  ensure_installed = { "cpp", "c" }, -- Add other languages you want parsers for
+  highlight = {
+    enable = true,              -- false will disable the whole extension
+    additional_vim_regex_highlighting = false,
+  },
+  indent = {
+    enable = true
+  }
+}
 EOF
