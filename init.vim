@@ -385,7 +385,7 @@ local function on_attach(client, bufnr)
 end
 
 -- Set up LSPs with common configurations.
-local servers = {'bzl', 'clangd', 'marksman', 'mojo'}
+local servers = {'bzl', 'clangd', 'marksman', 'mojo', 'vimls'}
 for _, lsp in ipairs(servers) do
     lspconfig[lsp].setup { on_attach = on_attach }
 end
@@ -489,6 +489,7 @@ dap.adapters.lldb = {
   name = 'lldb'
 }
 
+-- Configure C++ DAP.
 dap.configurations.cpp = {
   {
     name = 'Launch',
@@ -519,6 +520,31 @@ dap.configurations.cpp = {
   },
 }
 
+-- Configure Python DAP.
+dap.adapters.python = {
+  type = 'executable',
+  command = 'python',
+  args = { '-m', 'debugpy.adapter' }
+}
+
+dap.configurations.python = {
+  {
+    type = 'python',
+    request = 'launch',
+    name = "Launch file",
+    program = "${file}", -- This configuration will launch the current file if used.
+    pythonPath = function()
+      -- Use the virtualenv in the current workspace or the system python.
+      local venv_path = os.getenv("VIRTUAL_ENV")
+      if venv_path then
+        return venv_path .. '/bin/python'
+      else
+        return '/usr/bin/python'
+      end
+    end,
+  },
+}
+
 -- nvim dap UI
 dapui.setup()
 require("nvim-dap-virtual-text").setup()
@@ -535,13 +561,18 @@ vim.api.nvim_set_keymap('n', '<leader>wS', "<Cmd>lua require'dap'.step_out()<CR>
 vim.api.nvim_set_keymap('n', '<leader>wb', "<Cmd>lua require'dap'.toggle_breakpoint()<CR>", { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', '<leader>wB', "<Cmd>lua require'dap'.set_breakpoint(vim.fn.input('Breakpoint condition: '))<CR>", { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', '<leader>wp', "<Cmd>lua require'dap'.set_breakpoint(nil, nil, vim.fn.input('Log point message: '))<CR>", { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>wu', "<Cmd>lua require'dap'.up()<CR>", { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>wd', "<Cmd>lua require'dap'.down()<CR>", { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', '<leader>wr', "<Cmd>lua require'dap'.repl.open()<CR>", { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', '<leader>wl', "<Cmd>lua require'dap'.run_last()<CR>", { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', '<leader>wt', "<Cmd>lua require'dap'.terminate()<CR>", { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<leader>wui', "<Cmd>lua require'dapui'.toggle()<CR>", { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>wgui', "<Cmd>lua require'dapui'.toggle()<CR>", { noremap = true, silent = true })
+
+-- Open virtual text diagnostics into a window.
+vim.api.nvim_set_keymap('n', '<leader>of', "<Cmd>lua vim.diagnostic.open_float()<CR>", { noremap = true, silent = true })
 
 require'nvim-treesitter.configs'.setup {
-  ensure_installed = { "cpp", "c" }, -- Add other languages you want parsers for
+  ensure_installed = { "cpp", "c", "python" },
   highlight = {
     enable = true,              -- false will disable the whole extension
     additional_vim_regex_highlighting = false,
