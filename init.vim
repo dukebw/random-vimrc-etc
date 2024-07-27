@@ -84,6 +84,9 @@ runtime macros/matchit.vim
 " Disable AutoComplPop.
 let g:acp_enableAtStartup = 0
 
+" Set the Python3 provider.
+let g:python3_host_prog = "/home/ubuntu/work/modular/.derived/autovenv/bin/python"
+
 set backupdir=$HOME/.vim/backupdir
 set directory=$HOME/.vim/backupdir
 set undodir=$HOME/.vim/undodir
@@ -117,9 +120,6 @@ augroup END
 "when the first match contains parentheses.
 set noshowmatch
 
-let g:SuperTabDefaultCompletionType = "<c-n>"
-let g:SuperTabClosePreviewOnPopupClose = 1
-
 "don't autoselect first item in omnicomplete, show if only one item (for preview)
 "remove preview if you don't want to see any documentation whatsoever.
 set completeopt=longest,menuone,preview
@@ -135,18 +135,6 @@ set cmdheight=2
 
 "Don't ask to save when changing buffers (i.e. when jumping to a type definition)
 set hidden
-
-let g:jedi#goto_command = "<leader>d"
-let g:jedi#goto_assignments_command = "<leader>g"
-let g:jedi#goto_definitions_command = "<leader>s"
-let g:jedi#documentation_command = "K"
-let g:jedi#usages_command = "<leader>n"
-let g:jedi#completions_command = "<C-Space>"
-let g:jedi#rename_command = "<leader>r"
-let g:jedi#completions_enabled = 0
-let g:jedi#force_py_version = 3
-let g:jedi#show_call_signatures = "0"
-
 
 if &term =~ '256color'
     " Disable Background Color Erase (BCE) so that color schemes
@@ -390,30 +378,64 @@ for _, lsp in ipairs(servers) do
     lspconfig[lsp].setup { on_attach = on_attach }
 end
 
+local graph_generated_pkgs = vim.fn.expand("$MODULAR_PATH/bazel-bin/SDK/lib/GraphAPI/python")
+local graph_source_pkgs = vim.fn.expand("$MODULAR_PATH/SDK/lib/GraphAPI/python")
+local python_exe = vim.fn.expand("$MODULAR_DERIVED_PATH/autovenv/bin/python")
+
 lspconfig['pylsp'].setup {
     on_attach = on_attach,
     settings = {
         pylsp = {
             plugins = {
                 jedi = {
-                    environment = vim.fn.expand('$MODULAR_DERIVED_PATH/autovenv/bin/python')
-                }
+                    environment = python_exe,
+                    extra_paths = {
+                      graph_generated_pkgs,
+                      graph_source_pkgs,
+                    },
+                },
+                -- Type checking.
+                pylsp_mypy = {
+                  enabled = true,
+                  overrides = {
+                      "--python-executable", python_exe,
+                      "--show-column-numbers",
+                      "--show-error-codes",
+                      "--no-pretty",
+                      true
+                  },
+                  report_progress = true,
+                  live_mode = true,
+                },
+                pylint = {
+                    enabled = false  -- Disable pylint to avoid conflicts
+                    -- enabled = true,
+                    -- executable = "/home/ubuntu/work/modular/.derived/autovenv/bin/pylint",
+                },
+                -- import sorting
+                isort = { enabled = true },
             }
         }
     },
+    flags = {
+      debounce_text_changes = 200,
+    },
     before_init = function(_, config)
-        local path_to_append = "/home/ubuntu/.cache/bazel/_bazel_ubuntu/a5171e680520db7be14c4ce5f82e546f/execroot/_main/bazel-out/aarch64-dbg/bin/SDK/lib/GraphAPI/python/max_graph_editable"
+        local path_to_append = vim.fn.expand("$MODULAR_PATH/bazel-bin/SDK/lib/GraphAPI/python:$MODULAR_PATH/SDK/lib/GraphAPI/python")
         config.env = config.env or {}
         config.env.PYTHONPATH = ((config.env.PYTHONPATH and (config.env.PYTHONPATH .. ":")) or "") .. path_to_append
+        config.env.MYPYPATH = ((config.env.MYPYPATH and (config.env.MYPYPATH .. ":")) or "") .. path_to_append
     end
 }
+
+-- vim.lsp.set_log_level("debug")
 
 local util = require 'lspconfig.util'
 
 local modular_path = os.getenv("MODULAR_PATH")
 local bazelw = modular_path .. "/bazelw"
 local stdlib = modular_path .. "/open-source/mojo/stdlib"
-local max = modular_path .. "/SDK/lib/API/mojo"
+local max = modular_path .. "/SDK/lib/API/mojo/max"
 local kernels = modular_path .. "/Kernels/mojo"
 
 lspconfig.mojo.setup {
@@ -504,6 +526,7 @@ dap.configurations.cpp = {
       local input = vim.fn.input('Args: ')
       return vim.split(input, " ")
     end,
+    justMyCode = false,
 
     -- 💀
     -- if you change `runInTerminal` to true, you might need to change the yama/ptrace_scope setting:
@@ -542,6 +565,7 @@ dap.configurations.python = {
         return '/usr/bin/python'
       end
     end,
+    justMyCode = false,
   },
 }
 
