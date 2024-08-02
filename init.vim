@@ -373,7 +373,7 @@ local function on_attach(client, bufnr)
 end
 
 -- Set up LSPs with common configurations.
-local servers = {'bzl', 'clangd', 'marksman', 'mojo', 'vimls'}
+local servers = {'bzl', 'clangd', 'marksman', 'mojo', 'vimls', 'ruff'}
 for _, lsp in ipairs(servers) do
     lspconfig[lsp].setup { on_attach = on_attach }
 end
