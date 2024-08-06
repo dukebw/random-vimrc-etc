@@ -373,7 +373,7 @@ local function on_attach(client, bufnr)
 end
 
 -- Set up LSPs with common configurations.
-local servers = {'bzl', 'clangd', 'marksman', 'mojo', 'vimls', 'ruff'}
+local servers = {'bazelrc-lsp', 'bzl', 'clangd', 'marksman', 'mojo', 'vimls', 'ruff'}
 for _, lsp in ipairs(servers) do
     lspconfig[lsp].setup { on_attach = on_attach }
 end
@@ -382,7 +382,7 @@ local graph_generated_pkgs = vim.fn.expand("$MODULAR_PATH/bazel-bin/SDK/lib/Grap
 local graph_source_pkgs = vim.fn.expand("$MODULAR_PATH/SDK/lib/GraphAPI/python")
 local python_exe = vim.fn.expand("$MODULAR_DERIVED_PATH/autovenv/bin/python")
 
-lspconfig['pylsp'].setup {
+lspconfig.pylsp.setup {
     on_attach = on_attach,
     settings = {
         pylsp = {
@@ -453,7 +453,8 @@ lspconfig.mojo.setup {
 }
 
 --- Set up Bazel LSP.
-local bazel_lsp = "/home/ubuntu/.cache/bazel/_bazel_ubuntu/dcddefca2a2b2bd8462a64e331af35cd/execroot/_main/bazel-out/aarch64-opt/bin/bazel-lsp"
+local bazel_lsp = "/Users/bduke/work/bazel-lsp/bazel-bin/bazel-lsp"
+local bazelrc_lsp = "/Users/bduke/work/bazelrc-lsp/vscode-extension/dist/bazelrc-lsp"
 
 lspconfig.bzl.setup {
   cmd = {
@@ -462,6 +463,20 @@ lspconfig.bzl.setup {
   filetypes = { 'bzl' },
   root_dir = util.find_git_ancestor,
   single_file_support = true,
+  on_attach = on_attach,
+}
+
+vim.filetype.add {
+  pattern = {
+    ['.*.bazelrc'] = 'bazelrc',
+  },
+}
+
+lspconfig['bazelrc-lsp'].setup {
+  cmd = {
+    bazelrc_lsp,
+  },
+  filetypes = { 'bazelrc' },
   on_attach = on_attach,
 }
 
