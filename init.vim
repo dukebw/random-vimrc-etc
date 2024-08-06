@@ -42,6 +42,7 @@ Plug 'mfussenegger/nvim-dap'
 Plug 'nvim-neotest/nvim-nio'
 Plug 'rcarriga/nvim-dap-ui'
 Plug 'theHamsta/nvim-dap-virtual-text'
+Plug 'nvimtools/none-ls.nvim'
 
 " All of your Plugins must be added before the following line
 call plug#end()            " required
@@ -480,9 +481,17 @@ lspconfig['bazelrc-lsp'].setup {
   on_attach = on_attach,
 }
 
+local null_ls = require("null-ls")
+
+null_ls.setup({
+    sources = {
+        null_ls.builtins.formatting.buildifier,
+    },
+})
+
 vim.api.nvim_create_autocmd("BufWritePre", {
     buffer = buffer,
-    pattern = {"*.cpp", "*.hpp", "*.c", "*.h", ".cc", ".hh", ".cxx", ".hxx", "*.py", "*.sh"},
+    pattern = {"*.cpp", "*.hpp", "*.c", "*.h", ".cc", ".hh", ".cxx", ".hxx", "*.py", "*.sh", "BUILD", "WORKSPACE", "*.bazel", "*.bzl"},
     callback = function()
         vim.lsp.buf.format { async = false }
     end
