@@ -227,7 +227,7 @@ nnoremap <leader>mg :call LiveGrepMlir()<CR>
 nnoremap <leader>mf <cmd>Telescope find_files find_command=rg,--ignore,--hidden,--files,--glob,third-party/llvm-project/mlir/**/* prompt_prefix=🔍<cr>
 
 " Find files in the bazel-out directory.
-nnoremap <leader>bzf <cmd>Telescope find_files find_command=rg,--follow,-uuu,--hidden,--files,--glob,external/**/* prompt_prefix=🔍<cr>
+nnoremap <leader>bzf <cmd>Telescope find_files find_command=rg,--follow,-uuu,--hidden,--files,--glob,bazel-out/aarch64-opt-sane-release/bin/**/*.inc prompt_prefix=🔍<cr>
 
 " mblack
 function! RunMBlack()
@@ -345,6 +345,9 @@ autocmd FileType python call MyCustomHighlights()
 let g:semshi#always_update_all_highlights = v:true
 let g:semshi#update_delay_factor = 0.0001
 
+" Copies current relative filepath.
+nnoremap <silent> <leader>cp :let @+ = expand('%') \| echo 'Copied: ' . @+<CR>
+
 lua << EOF
 require("mason").setup()
 require("mason-lspconfig").setup()
@@ -379,8 +382,9 @@ for _, lsp in ipairs(servers) do
     lspconfig[lsp].setup { on_attach = on_attach }
 end
 
-local graph_generated_pkgs = vim.fn.expand("$MODULAR_PATH/bazel-bin/SDK/lib/GraphAPI/python")
-local graph_source_pkgs = vim.fn.expand("$MODULAR_PATH/SDK/lib/GraphAPI/python")
+local api_generated_pkgs = vim.fn.expand("$MODULAR_PATH/bazel-bin/SDK/lib/API/python")
+local api_source_pkgs = vim.fn.expand("$MODULAR_PATH/SDK/lib/API/python")
+local pipelines_source_pkgs = vim.fn.expand("$MODULAR_PATH/SDK/public/max-repo/pipelines/python")
 local python_exe = vim.fn.expand("$MODULAR_DERIVED_PATH/autovenv/bin/python")
 
 lspconfig.pylsp.setup {
@@ -391,8 +395,9 @@ lspconfig.pylsp.setup {
                 jedi = {
                     environment = python_exe,
                     extra_paths = {
-                      graph_generated_pkgs,
-                      graph_source_pkgs,
+                      api_generated_pkgs,
+                      api_source_pkgs,
+                      pipelines_source_pkgs,
                     },
                 },
                 -- Type checking.
@@ -422,11 +427,29 @@ lspconfig.pylsp.setup {
       debounce_text_changes = 200,
     },
     before_init = function(_, config)
-        local path_to_append = vim.fn.expand("$MODULAR_PATH/bazel-bin/SDK/lib/GraphAPI/python:$MODULAR_PATH/SDK/lib/GraphAPI/python")
+        local path_to_append = vim.fn.expand("$MODULAR_PATH/bazel-bin/SDK/lib/API/python:$MODULAR_PATH/SDK/lib/API/python:$MODULAR_PATH/SDK/public/max-repo/pipelines/python")
         config.env = config.env or {}
         config.env.PYTHONPATH = ((config.env.PYTHONPATH and (config.env.PYTHONPATH .. ":")) or "") .. path_to_append
         config.env.MYPYPATH = ((config.env.MYPYPATH and (config.env.MYPYPATH .. ":")) or "") .. path_to_append
     end
+}
+
+lspconfig.mlir_lsp_server.setup {
+  on_attach = on_attach,
+  cmd = {
+    'modular-lsp-server',
+  },
+  filetypes = {
+    'mlir',
+  },
+}
+
+lspconfig.tblgen_lsp_server.setup {
+  on_attach = on_attach,
+  cmd = {
+    'tblgen-lsp-server',
+    '--tablegen-compilation-database=.derived/build-release/tablegen_compile_commands.yml',
+  },
 }
 
 -- vim.lsp.set_log_level("debug")
@@ -434,18 +457,18 @@ lspconfig.pylsp.setup {
 local util = require 'lspconfig.util'
 
 local modular_path = os.getenv("MODULAR_PATH")
-local bazelw = modular_path .. "/bazelw"
-local stdlib = modular_path .. "/open-source/mojo/stdlib"
 local max = modular_path .. "/SDK/lib/API/mojo/max"
-local kernels = modular_path .. "/Kernels/mojo"
+local pipelines = modular_path .. "/SDK/public/max-repo/examples/graph-api"
+local examples = modular_path .. "/ModularFramework/examples"
+local examples_pipelines = examples .. "/pipelines"
 
 lspconfig.mojo.setup {
   cmd = {
-    bazelw,
-    'run', '//KGEN/tools/mojo-lsp-server', '--',
-    '-I', stdlib,
+    'mojo-lsp-server',
     '-I', max,
-    '-I', kernels,
+    '-I', pipelines,
+    '-I', examples,
+    '-I', examples_pipelines,
   },
   filetypes = { 'mojo' },
   root_dir = util.find_git_ancestor,
@@ -480,6 +503,14 @@ lspconfig['bazelrc-lsp'].setup {
   filetypes = { 'bazelrc' },
   on_attach = on_attach,
 }
+
+lspconfig.ruff.setup({
+  init_options = {
+    settings = {
+      lineLength = 80
+    }
+  }
+})
 
 local null_ls = require("null-ls")
 
@@ -517,17 +548,18 @@ vim.wo.relativenumber = true
 -- nvim-dap:
 -- https://github.com/mfussenegger/nvim-dap/wiki/Debug-Adapter-installation#ccrust-via-lldb-vscode
 local dap = require('dap')
+dap.set_log_level('DEBUG')
 local dapui = require('dapui')
 
 dap.listeners.after.event_initialized["dapui_config"] = function()
   dapui.open()
 end
-dap.listeners.before.event_terminated["dapui_config"] = function()
-  dapui.close()
-end
-dap.listeners.before.event_exited["dapui_config"] = function()
-  dapui.close()
-end
+-- dap.listeners.before.event_terminated["dapui_config"] = function()
+--   dapui.close()
+-- end
+-- dap.listeners.before.event_exited["dapui_config"] = function()
+--   dapui.close()
+-- end
 
 dap.adapters.lldb = {
   type = 'executable',
@@ -536,21 +568,78 @@ dap.adapters.lldb = {
 }
 
 -- Configure C++ DAP.
+local function read_json_config(file_path)
+  local file = io.open(file_path, "r")
+  if not file then
+    print("Config file not found: " .. file_path)
+    return nil
+  end
+
+  local content = file:read("*all")
+  file:close()
+
+  local status, config = pcall(vim.fn.json_decode, content)
+  if not status then
+    print("Error parsing JSON config: " .. config)
+    return nil
+  end
+
+  return config
+end
+
+local function get_config_or_input(config, key, prompt, default)
+  if config and config[key] then
+    return config[key]
+  else
+    return vim.fn.input(prompt, default or '')
+  end
+end
+
+local function merge_environments(default_env, json_env)
+  local merged_env = vim.deepcopy(default_env)
+  if json_env then
+    for k, v in pairs(json_env) do
+      merged_env[k] = v
+    end
+  end
+  return merged_env
+end
+
+local default_env = {}
+
 dap.configurations.cpp = {
   {
     name = 'Launch',
     type = 'lldb',
     request = 'launch',
     program = function()
-      return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
+      local config = read_json_config(vim.fn.getcwd() .. '/.nvim-dap.json')
+      return get_config_or_input(config, "program", 'Path to executable: ', vim.fn.getcwd() .. '/')
     end,
     cwd = '${workspaceFolder}',
     stopOnEntry = false,
     args = function()
-      local input = vim.fn.input('Args: ')
-      return vim.split(input, " ")
+      local config = read_json_config(vim.fn.getcwd() .. '/.nvim-dap.json')
+      if config and config.args then
+        return config.args
+      else
+        local input = vim.fn.input('Args: ')
+        return vim.split(input, " ")
+      end
     end,
     justMyCode = false,
+    env = function()
+      local config = read_json_config(vim.fn.getcwd() .. '/.nvim-dap.json')
+      return merge_environments(default_env, config and config.env or nil)
+    end,
+    initCommands = function()
+      local env = dap.configurations.cpp[1].env()
+      local commands = {}
+      for k, v in pairs(env) do
+        table.insert(commands, string.format('settings set target.env-vars %s="%s"', k, v))
+      end
+      return commands
+    end,
 
     -- 💀
     -- if you change `runInTerminal` to true, you might need to change the yama/ptrace_scope setting:
@@ -589,7 +678,11 @@ dap.configurations.python = {
         return '/usr/bin/python'
       end
     end,
-    justMyCode = false,
+    env = function()
+      local config = read_json_config(vim.fn.getcwd() .. '/.nvim-dap.json')
+      return merge_environments(default_env, config and config.env or nil)
+    end,
+    justMyCode = true,
   },
 }
 
@@ -614,7 +707,7 @@ vim.api.nvim_set_keymap('n', '<leader>wd', "<Cmd>lua require'dap'.down()<CR>", {
 vim.api.nvim_set_keymap('n', '<leader>wr', "<Cmd>lua require'dap'.repl.open()<CR>", { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', '<leader>wl', "<Cmd>lua require'dap'.run_last()<CR>", { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', '<leader>wt', "<Cmd>lua require'dap'.terminate()<CR>", { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<leader>wgui', "<Cmd>lua require'dapui'.toggle()<CR>", { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>wg', "<Cmd>lua require'dapui'.toggle()<CR>", { noremap = true, silent = true })
 
 -- Open virtual text diagnostics into a window.
 vim.api.nvim_set_keymap('n', '<leader>of', "<Cmd>lua vim.diagnostic.open_float()<CR>", { noremap = true, silent = true })
