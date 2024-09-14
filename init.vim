@@ -377,7 +377,7 @@ local function on_attach(client, bufnr)
 end
 
 -- Set up LSPs with common configurations.
-local servers = {'bazelrc-lsp', 'bzl', 'clangd', 'marksman', 'mojo', 'vimls', 'ruff'}
+local servers = {'bzl', 'clangd', 'marksman', 'mojo', 'vimls'}
 for _, lsp in ipairs(servers) do
     lspconfig[lsp].setup { on_attach = on_attach }
 end
@@ -386,19 +386,44 @@ local api_generated_pkgs = vim.fn.expand("$MODULAR_PATH/bazel-bin/SDK/lib/API/py
 local api_source_pkgs = vim.fn.expand("$MODULAR_PATH/SDK/lib/API/python")
 local pipelines_source_pkgs = vim.fn.expand("$MODULAR_PATH/SDK/public/max-repo/pipelines/python")
 local python_exe = vim.fn.expand("$MODULAR_DERIVED_PATH/autovenv/bin/python")
+local ruff_exe = vim.fn.expand("$MODULAR_DERIVED_PATH/autovenv/bin/ruff")
 
 lspconfig.pylsp.setup {
     on_attach = on_attach,
     settings = {
         pylsp = {
             plugins = {
+               ruff = {
+                  enabled = true,  -- Enable the plugin
+                  formatEnabled = true,  -- Enable formatting using ruffs formatter
+                  executable = ruff_exe,  -- Custom path to ruff
+                  -- config = "<path_to_custom_ruff_toml>",  -- Custom config for ruff to use
+                  extendSelect = { "I" },  -- Rules that are additionally used by ruff
+                  -- extendIgnore = { "C90" },  -- Rules that are additionally ignored by ruff
+                  format = { "I" },  -- Rules that are marked as fixable by ruff that should be fixed when running textDocument/formatting
+                  -- severities = { ["D212"] = "I" },  -- Optional table of rules where a custom severity is desired
+                  unsafeFixes = true,  -- Whether or not to offer unsafe fixes as code actions. Ignored with the "Fix All" action
+
+                  -- Rules that are ignored when a pyproject.toml or ruff.toml is present:
+                  lineLength = 80,  -- Line length to pass to ruff checking and formatting
+                  -- exclude = { "__about__.py" },  -- Files to be excluded by ruff checking
+                  select = { "ALL" },  -- Rules to be enabled by ruff
+                  -- Rules to be ignored by ruff:
+                  -- D401: imperative docstring.
+                  -- D410: blank line after Returns: in docstring.
+                  -- COM812: trailing comma missing.
+                  ignore = { "D401", "D413", "COM812" },
+                  -- perFileIgnores = { ["__init__.py"] = "CPY001" },  -- Rules that should be ignored for specific files
+                  preview = true,  -- Whether to enable the preview style linting and formatting.
+                  targetVersion = "py39",  -- The minimum python version to target (applies for both linting and formatting).
+                },
                 jedi = {
-                    environment = python_exe,
-                    extra_paths = {
-                      api_generated_pkgs,
-                      api_source_pkgs,
-                      pipelines_source_pkgs,
-                    },
+                  environment = python_exe,
+                  extra_paths = {
+                    api_generated_pkgs,
+                    api_source_pkgs,
+                    pipelines_source_pkgs,
+                  },
                 },
                 -- Type checking.
                 pylsp_mypy = {
@@ -408,20 +433,20 @@ lspconfig.pylsp.setup {
                       "--show-column-numbers",
                       "--show-error-codes",
                       "--no-pretty",
-                      true
+                      true,
                   },
                   report_progress = true,
                   live_mode = true,
                 },
                 pylint = {
-                    enabled = false  -- Disable pylint to avoid conflicts
-                    -- enabled = true,
-                    -- executable = "/home/ubuntu/work/modular/.derived/autovenv/bin/pylint",
+                  enabled = false  -- Disable pylint to avoid conflicts
+                  -- enabled = true,
+                  -- executable = "/home/ubuntu/work/modular/.derived/autovenv/bin/pylint",
                 },
                 -- import sorting
                 isort = { enabled = true },
-            }
-        }
+            },
+        },
     },
     flags = {
       debounce_text_changes = 200,
@@ -461,6 +486,8 @@ local max = modular_path .. "/SDK/lib/API/mojo/max"
 local pipelines = modular_path .. "/SDK/public/max-repo/examples/graph-api"
 local examples = modular_path .. "/ModularFramework/examples"
 local examples_pipelines = examples .. "/pipelines"
+local kernels = modular_path .. "/Kernels/mojo"
+local extensibility = modular_path .. "/Kernels/mojo/extensibility"
 
 lspconfig.mojo.setup {
   cmd = {
@@ -469,6 +496,8 @@ lspconfig.mojo.setup {
     '-I', pipelines,
     '-I', examples,
     '-I', examples_pipelines,
+    '-I', kernels,
+    '-I', extensibility,
   },
   filetypes = { 'mojo' },
   root_dir = util.find_git_ancestor,
@@ -496,21 +525,13 @@ vim.filetype.add {
   },
 }
 
-lspconfig['bazelrc-lsp'].setup {
+lspconfig.bazelrc_lsp.setup {
   cmd = {
     bazelrc_lsp,
   },
   filetypes = { 'bazelrc' },
   on_attach = on_attach,
 }
-
-lspconfig.ruff.setup({
-  init_options = {
-    settings = {
-      lineLength = 80
-    }
-  }
-})
 
 local null_ls = require("null-ls")
 
