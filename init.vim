@@ -413,7 +413,7 @@ lspconfig.pylsp.setup {
                   -- D410: blank line after Returns: in docstring.
                   -- COM812: trailing comma missing.
                   ignore = { "D401", "D413", "COM812" },
-                  -- perFileIgnores = { ["__init__.py"] = "CPY001" },  -- Rules that should be ignored for specific files
+                  perFileIgnores = { ["__init__.py"] = "F401" },  -- Rules that should be ignored for specific files
                   preview = true,  -- Whether to enable the preview style linting and formatting.
                   targetVersion = "py39",  -- The minimum python version to target (applies for both linting and formatting).
                 },
@@ -626,6 +626,34 @@ local function merge_environments(default_env, json_env)
   return merged_env
 end
 
+-- Gets configuration from .nvim-dap.json, or nil.
+local function get_config_value(key)
+  local config = read_json_config(vim.fn.getcwd() .. '/.nvim-dap.json')
+  if config then
+    return config[key]
+  end
+  return nil
+end
+
+-- Determines program or pytest execution.
+local function determine_program()
+  if get_config_value('run_with_pytest') then
+    return nil
+  end
+  return "${file}"
+end
+
+-- Constructs pytest args.
+local function build_pytest_args()
+  local args = get_config_value('args') or {}
+  if get_config_value('run_with_pytest') and get_config_value('test_function') then
+    if #args > 0 then
+      args[#args] = args[#args] .. "::" .. get_config_value('test_function')
+    end
+  end
+  return args
+end
+
 local default_env = {}
 
 dap.configurations.cpp = {
@@ -688,8 +716,12 @@ dap.configurations.python = {
   {
     type = 'python',
     request = 'launch',
-    name = "Launch file",
-    program = "${file}", -- This configuration will launch the current file if used.
+    name = "Debug pytest file, or launch",
+    module = function()
+      return determine_program() == nil and 'pytest' or nil
+    end,
+    program = determine_program,
+    args = build_pytest_args,
     pythonPath = function()
       -- Use the virtualenv in the current workspace or the system python.
       local venv_path = os.getenv("VIRTUAL_ENV")
@@ -705,6 +737,26 @@ dap.configurations.python = {
     end,
     justMyCode = true,
   },
+  -- {
+  --   type = 'python',
+  --   request = 'launch',
+  --   name = "Launch file",
+  --   program = "${file}", -- This configuration will launch the current file if used.
+  --   pythonPath = function()
+  --     -- Use the virtualenv in the current workspace or the system python.
+  --     local venv_path = os.getenv("VIRTUAL_ENV")
+  --     if venv_path then
+  --       return venv_path .. '/bin/python'
+  --     else
+  --       return '/usr/bin/python'
+  --     end
+  --   end,
+  --   env = function()
+  --     local config = read_json_config(vim.fn.getcwd() .. '/.nvim-dap.json')
+  --     return merge_environments(default_env, config and config.env or nil)
+  --   end,
+  --   justMyCode = true,
+  -- },
 }
 
 -- nvim dap UI
