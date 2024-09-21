@@ -412,7 +412,8 @@ lspconfig.pylsp.setup {
                   -- D401: imperative docstring.
                   -- D410: blank line after Returns: in docstring.
                   -- COM812: trailing comma missing.
-                  ignore = { "D401", "D413", "COM812" },
+                  -- TD003: missing issue link on the line following this TODO.
+                  ignore = { "D401", "D413", "COM812", "TD003" },
                   perFileIgnores = { ["__init__.py"] = "F401" },  -- Rules that should be ignored for specific files
                   preview = true,  -- Whether to enable the preview style linting and formatting.
                   targetVersion = "py39",  -- The minimum python version to target (applies for both linting and formatting).
@@ -640,7 +641,8 @@ local function determine_program()
   if get_config_value('run_with_pytest') then
     return nil
   end
-  return "${file}"
+
+  return get_config_value('python_file') or "${file}"
 end
 
 -- Constructs pytest args.
@@ -669,8 +671,8 @@ dap.configurations.cpp = {
     stopOnEntry = false,
     args = function()
       local config = read_json_config(vim.fn.getcwd() .. '/.nvim-dap.json')
-      if config and config.args then
-        return config.args
+      if config and config.cpp_args then
+        return config.cpp_args
       else
         local input = vim.fn.input('Args: ')
         return vim.split(input, " ")
