@@ -1,4 +1,5 @@
 """Create and configure MDCM instance."""
+
 import os
 import socket
 import subprocess
@@ -59,10 +60,14 @@ def cli():
 
 
 @cli.command()
-@click.option("--vm-name", type=str, default="c6i.16xlarge", help="Name of the VM")
+@click.option(
+    "--vm-name", type=str, default="c6i.16xlarge", help="Name of the VM"
+)
 def create_vm(vm_name: str):
     """Create and start the VM."""
-    run_local_command(f"mdcm volume create --name {volume_name} --size {volume_size}")
+    run_local_command(
+        f"mdcm volume create --name {volume_name} --size {volume_size}"
+    )
     run_local_command(
         f"mdcm vm create -n {vm_name} -t {instance_type} -osver {os_version} -v"
         f" {volume_name}"
@@ -73,7 +78,9 @@ def create_vm(vm_name: str):
 
 @cli.command()
 @click.option("--vm-ip", type=str, required=True, help="IP address of the VM")
-@click.option("--vm-name", type=str, default="c6i.16xlarge", help="Name of the VM")
+@click.option(
+    "--vm-name", type=str, default="c6i.16xlarge", help="Name of the VM"
+)
 def install_configure(vm_ip: str, vm_name: str):
     """SSH into the VM and run install and configuration commands."""
     local_home_dir = Path(os.getenv("HOME"))
@@ -83,7 +90,9 @@ def install_configure(vm_ip: str, vm_name: str):
     # SSH into the VM
     ssh_client = paramiko.SSHClient()
     ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh_client.connect(vm_ip, username=remote_username, key_filename=str(key_path))
+    ssh_client.connect(
+        vm_ip, username=remote_username, key_filename=str(key_path)
+    )
 
     # Update and install oh-my-zsh
     run_ssh_command(ssh_client, "sudo apt update && sudo apt upgrade -y")
@@ -109,7 +118,9 @@ def install_configure(vm_ip: str, vm_name: str):
         "expect eof\n"
     )
     # Creating the Expect script on the remote machine
-    run_ssh_command(ssh_client, f"echo -e '{expect_script}' > install_oh_my_zsh.expect")
+    run_ssh_command(
+        ssh_client, f"echo -e '{expect_script}' > install_oh_my_zsh.expect"
+    )
     run_ssh_command(ssh_client, "chmod +x install_oh_my_zsh.expect")
     run_ssh_command(ssh_client, "./install_oh_my_zsh.expect")
 
@@ -124,7 +135,8 @@ def install_configure(vm_ip: str, vm_name: str):
     if is_graviton:
         # Install neovim from source.
         run_ssh_command(
-            ssh_client, "sudo apt install -y ninja-build gettext cmake unzip curl fd-find"
+            ssh_client,
+            "sudo apt install -y ninja-build gettext cmake unzip curl fd-find",
         )
         run_ssh_command(
             ssh_client,
@@ -180,7 +192,9 @@ def install_configure(vm_ip: str, vm_name: str):
     )
     # Set a timeout since this seems to hang.
     run_ssh_command(
-        ssh_client, "nvim -c 'PlugUpgrade | PlugInstall | PlugUpdate | qa!'", timeout=30
+        ssh_client,
+        "nvim -c 'PlugUpgrade | PlugInstall | PlugUpdate | qa!'",
+        timeout=30,
     )
 
     # Perform final setup
@@ -225,9 +239,7 @@ def install_configure(vm_ip: str, vm_name: str):
     if not ("c7g" in vm_name):
         run_ssh_command(
             ssh_client,
-            (
-                'sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"'
-            ),
+            ('sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"'),
         )
     run_ssh_command(
         ssh_client,
@@ -252,9 +264,7 @@ def install_configure(vm_ip: str, vm_name: str):
     )
     run_ssh_command(
         ssh_client,
-        (
-            "sed -i 's/plugins=(git)/plugins=(git vi-mode)/' ~/.zshrc"
-        ),
+        ("sed -i 's/plugins=(git)/plugins=(git vi-mode)/' ~/.zshrc"),
     )
 
     ssh_client.close()
