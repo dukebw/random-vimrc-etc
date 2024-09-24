@@ -96,7 +96,10 @@ def install_configure(vm_ip: str, vm_name: str):
 
     # Update and install oh-my-zsh
     run_ssh_command(ssh_client, "sudo apt update && sudo apt upgrade -y")
-    run_ssh_command(ssh_client, "sudo apt install -y expect xclip zsh")
+    run_ssh_command(
+        ssh_client,
+        "sudo apt install -y expect xclip zsh protobuf-compiler fd-find",
+    )
     run_ssh_command(ssh_client, "sudo passwd -d `whoami`")
     run_ssh_command(ssh_client, "sudo chsh -s $(which zsh)")
     run_ssh_command(
@@ -142,8 +145,8 @@ def install_configure(vm_ip: str, vm_name: str):
             ssh_client,
             (
                 "curl -fsSL"
-                " https://github.com/neovim/neovim/archive/refs/tags/v0.9.5.tar.gz -o"
-                " nvim-v0.9.5.tar.gz && tar zxf nvim-v0.9.5.tar.gz && cd neovim-0.9.5"
+                " https://github.com/neovim/neovim/archive/refs/tags/v0.10.1.tar.gz -o"
+                " nvim-v0.10.1.tar.gz && tar zxf nvim-v0.10.1.tar.gz && cd neovim-0.10.1"
                 " && make CMAKE_BUILD_TYPE=Release && sudo make install"
             ),
         )
@@ -154,7 +157,7 @@ def install_configure(vm_ip: str, vm_name: str):
             ssh_client,
             (
                 "curl -fsSL"
-                " https://github.com/neovim/neovim/releases/download/v0.9.5/nvim-linux64.tar.gz"
+                " https://github.com/neovim/neovim/releases/download/v0.10.1/nvim-linux64.tar.gz"
                 " -o nvim-linux64.tar.gz"
             ),
         )
@@ -255,16 +258,147 @@ def install_configure(vm_ip: str, vm_name: str):
             "git config --global user.name 'Brendan Duke' && git config --global user.email 'bduke@modular.com'"
         ),
     )
-    run_ssh_command(
-        ssh_client,
-        (
-            "echo 'alias fdh=\"fdfind --hidden --no-ignore\"' >> ~/.zshrc &&"
-            "echo 'export EDITOR=nvim' >> ~/.zshrc"
-        ),
-    )
+
     run_ssh_command(
         ssh_client,
         ("sed -i 's/plugins=(git)/plugins=(git vi-mode)/' ~/.zshrc"),
+    )
+
+    zshrc_epilogue = r"""alias fdh="fdfind --hidden --no-ignore"
+export PYENV_ROOT="$HOME/.pyenv"
+[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init -)"
+
+pyenv global 3.12
+
+cd ~/work/modular
+source utils/start-modular.sh
+
+alias fdh='fdfind --hidden --no-ignore'
+alias bc='clear-mojo-packages; rm -rf .derived/.{max,mojo}_cache; $MODULAR_PATH/.derived/autovenv/bin/python3 $MODULAR_PATH/utils/build.py build modular all max-mojo custom_rope_target'
+alias ba='$MODULAR_PATH/.derived/autovenv/bin/python3 $MODULAR_PATH/utils/build.py build modular all max-mojo'
+source $MODULAR_DERIVED_PATH/autovenv/bin/activate
+export PATH=$PATH:/usr/local/go/bin
+
+# Fuzzy finder for Bazel.
+# Source: https://blog.jez.io/fzf-bazel/
+_fzf_complete_bazel_test() {
+  _fzf_complete '-m' "$@" < <(command bazel query \
+    "kind('(test|test_suite) rule', //...)" 2> /dev/null)
+}
+
+_fzf_complete_bazel() {
+  local tokens
+  tokens=(${(z)LBUFFER})
+
+  if [ ${#tokens[@]} -ge 3 ] && [ "${tokens[2]}" = "test" ]; then
+    _fzf_complete_bazel_test "$@"
+  else
+    # Might be able to make this better someday, by listing all repositories
+    # that have been configured in a WORKSPACE.
+    # See https://stackoverflow.com/questions/46229831/ or just run
+    #     bazel query //external:all
+    # This is the reason why things like @ruby_2_6//:ruby.tar.gz don't show up
+    # in the output: they're not a dep of anything in //..., but they are deps
+    # of @ruby_2_6//...
+    _fzf_complete '-m' "$@" < <(command bazel query --keep_going \
+      --noshow_progress \
+      "kind('(binary rule)|(generated file)', deps(//...))" 2> /dev/null)
+  fi
+}
+_fzf_complete_sb() { _fzf_complete_bazel "$@" }
+_fzf_complete_sbg() { _fzf_complete_bazel "$@" }
+_fzf_complete_sbgo() { _fzf_complete_bazel "$@" }
+_fzf_complete_sbo() { _fzf_complete_bazel "$@" }
+_fzf_complete_sbr() { _fzf_complete_bazel "$@" }
+_fzf_complete_sbl() { _fzf_complete_bazel "$@" }
+_fzf_complete_st() { _fzf_complete_bazel_test "$@" }
+_fzf_complete_sto() { _fzf_complete_bazel_test "$@" }
+_fzf_complete_stg() { _fzf_complete_bazel_test "$@" }
+_fzf_complete_stog() { _fzf_complete_bazel_test "$@" }
+
+export IBAZEL=/home/ubuntu/work/bazel-watcher/bazel-bin/cmd/ibazel/ibazel_/ibazel
+alias bz-cc='bazelw run //:refresh_compile_commands -- --bazel ./bazelw && bash $HOME/work/random-vimrc-etc/fix_compile_commands.sh'
+alias bz=$MODULAR_PATH/bazelw
+export PYTHONPATH=$MODULAR_PATH/bazel-bin/SDK/lib/API/python:$MODULAR_PATH/SDK/lib/API/python:$MODULAR_PATH/SDK/public/max-repo/pipelines/python
+export MYPYPATH=$PYTHONPATH
+export MODULAR_MOJO_MAX_COMPILERRT_PATH=$MODULAR_PATH/bazel-bin/KGEN/libKGENCompilerRTShared.so
+export MODULAR_MOJO_MAX_IMPORT_PATH=$MODULAR_PATH/bazel-bin/Kernels/mojo/buffer,$MODULAR_PATH/bazel-bin/Kernels/mojo/register,$MODULAR_PATH/bazel-bin/SDK/integration-test,$MODULAR_PATH/bazel-bin/open-source/mojo/stdlib/stdlib
+# Set MODULAR_HOME so that mojo-lsp-server works.
+export MODULAR_HOME=$MODULAR_DERIVED_PATH
+
+. "$HOME/.cargo/env"
+
+# pnpm
+export PNPM_HOME="/home/ubuntu/.local/share/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
+# pnpm end
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+alias ibb="$IBAZEL -bazel_path $MODULAR_PATH/bazelw build"
+alias ibr="$IBAZEL -bazel_path $MODULAR_PATH/bazelw run"
+alias ibt="$IBAZEL -bazel_path $MODULAR_PATH/bazelw test"
+
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+export BAZEL_AWS_ECR_PASSWORD=$(aws ecr get-login-password --region us-east-1)
+
+# Created by `pipx` on 2024-09-09 13:36:28
+export PATH="$PATH:/home/ubuntu/.local/bin"
+"""
+    run_ssh_command(ssh_client, f'echo "{zshrc_epilogue}" >> ~/.zshrc')
+
+    # Install pyenv.
+    run_ssh_command(
+        ssh_client, "curl https://pyenv.run | bash && pyenv install 3.12"
+    )
+
+    local_bazlerc = r"""# Build all code with -O3, -gline-tables-only, and -fno-omit-frame-pointer.
+build:sane-release --cc_output_directory_tag=sane-release
+build:sane-release --compilation_mode=opt
+build:sane-release --copt=-O3
+build:sane-release --copt=-gline-tables-only
+build:sane-release --copt=-fno-omit-frame-pointer
+build:sane-release --strip=never
+
+# Default everything to sane-release.
+build --config=sane-release --config=remote-intel --config=local-gpu
+run --config=sane-release
+test --config=sane-release
+"""
+    run_ssh_command(ssh_client, f'echo "{local_bazlerc}" >> ~/.zshrc')
+
+    # Install pnpm.
+    run_ssh_command(
+        ssh_client, "curl -fsSL https://get.pnpm.io/install.sh | sh -"
+    )
+
+    # Install nvm.
+    run_ssh_command(
+        ssh_client,
+        "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash",
+    )
+
+    # Install node.
+    run_ssh_command(ssh_client, "nvm install node")
+
+    # Install bazelrc-lsp.
+    run_ssh_command(
+        ssh_client,
+        (
+            "cd ~/work && gcl git@github.com:salesforce-misc/bazelrc-lsp && cd bazelrc-lsp/vscode-extension && pnpm i && pnpm package"
+        ),
+    )
+
+    # Install bazel-lsp.
+    run_ssh_command(
+        ssh_client,
+        "cd ~/work && gcl git@github.com:cameron-martin/bazel-lsp && cd bazel-lsp && bazel build //:bazel-lsp -c opt",
     )
 
     ssh_client.close()
