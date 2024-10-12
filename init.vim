@@ -382,13 +382,16 @@ for _, lsp in ipairs(servers) do
     lspconfig[lsp].setup { on_attach = on_attach }
 end
 
+local modular_path = os.getenv("MODULAR_PATH")
 local api_generated_pkgs = vim.fn.expand("$MODULAR_PATH/bazel-bin/SDK/lib/API/python")
 local api_source_pkgs = vim.fn.expand("$MODULAR_PATH/SDK/lib/API/python")
 local pipelines_source_pkgs = vim.fn.expand("$MODULAR_PATH/SDK/public/max-repo/pipelines/python")
-local python_exe = vim.fn.expand("$MODULAR_DERIVED_PATH/autovenv/bin/python")
-local ruff_exe = vim.fn.expand("$MODULAR_DERIVED_PATH/autovenv/bin/ruff")
+local pipelines_venv = vim.fn.expand("$MODULAR_PATH/.SDK+public+max-repo+pipelines+python+pipelines.venv")
+local python_exe = pipelines_venv .. "/bin/python"
+local ruff_exe = pipelines_venv .. "/bin/ruff"
 
 lspconfig.pylsp.setup {
+    cmd = { python_exe, '-m', 'pylsp' },
     on_attach = on_attach,
     settings = {
         pylsp = {
@@ -414,35 +417,34 @@ lspconfig.pylsp.setup {
                   -- COM812: trailing comma missing.
                   -- TD003: missing issue link on the line following this TODO.
                   ignore = { "D401", "D413", "COM812", "TD003" },
-                  perFileIgnores = { ["__init__.py"] = "F401" },  -- Rules that should be ignored for specific files
+                  perFileIgnores = { ["__init__.py"] = {"F401"} },  -- Rules that should be ignored for specific files
                   preview = true,  -- Whether to enable the preview style linting and formatting.
                   targetVersion = "py39",  -- The minimum python version to target (applies for both linting and formatting).
                 },
                 jedi = {
                   environment = python_exe,
-                  extra_paths = {
-                    api_generated_pkgs,
-                    api_source_pkgs,
-                    pipelines_source_pkgs,
-                  },
+                  -- extra_paths = {
+                  --   api_generated_pkgs,
+                  --   api_source_pkgs,
+                  --   pipelines_source_pkgs,
+                  -- },
                 },
                 -- Type checking.
                 pylsp_mypy = {
                   enabled = true,
-                  overrides = {
-                      "--python-executable", python_exe,
-                      "--show-column-numbers",
-                      "--show-error-codes",
-                      "--no-pretty",
-                      true,
-                  },
-                  report_progress = true,
-                  live_mode = true,
+                  -- overrides = {
+                  --     "--python-executable", python_exe,
+                  --     "--show-column-numbers",
+                  --     "--show-error-codes",
+                  --     "--no-pretty",
+                  --     true,
+                  -- },
+                  -- report_progress = true,
+                  -- live_mode = true,
+                  config = modular_path .. "/mypy.ini",
                 },
                 pylint = {
                   enabled = false  -- Disable pylint to avoid conflicts
-                  -- enabled = true,
-                  -- executable = "/home/ubuntu/work/modular/.derived/autovenv/bin/pylint",
                 },
                 -- import sorting
                 isort = { enabled = true },
@@ -452,12 +454,6 @@ lspconfig.pylsp.setup {
     flags = {
       debounce_text_changes = 200,
     },
-    before_init = function(_, config)
-        local path_to_append = vim.fn.expand("$MODULAR_PATH/bazel-bin/SDK/lib/API/python:$MODULAR_PATH/SDK/lib/API/python:$MODULAR_PATH/SDK/public/max-repo/pipelines/python")
-        config.env = config.env or {}
-        config.env.PYTHONPATH = ((config.env.PYTHONPATH and (config.env.PYTHONPATH .. ":")) or "") .. path_to_append
-        config.env.MYPYPATH = ((config.env.MYPYPATH and (config.env.MYPYPATH .. ":")) or "") .. path_to_append
-    end
 }
 
 lspconfig.mlir_lsp_server.setup {
@@ -482,23 +478,24 @@ lspconfig.tblgen_lsp_server.setup {
 
 local util = require 'lspconfig.util'
 
-local modular_path = os.getenv("MODULAR_PATH")
 local max = modular_path .. "/SDK/lib/API/mojo/max"
 local pipelines = modular_path .. "/SDK/public/max-repo/examples/graph-api"
 local examples = modular_path .. "/ModularFramework/examples"
 local examples_pipelines = examples .. "/pipelines"
 local kernels = modular_path .. "/Kernels/mojo"
+local kernels_test = modular_path .. "/Kernels/test"
 local extensibility = modular_path .. "/Kernels/mojo/extensibility"
+local stdlib = modular_path .. "/open-source/mojo/stdlib/stdlib"
 
 lspconfig.mojo.setup {
   cmd = {
     'mojo-lsp-server',
+    '-I', kernels,
     '-I', max,
     '-I', pipelines,
-    '-I', examples,
-    '-I', examples_pipelines,
-    '-I', kernels,
+    '-I', kernels_test,
     '-I', extensibility,
+    -- '-I', stdlib,
   },
   filetypes = { 'mojo' },
   root_dir = util.find_git_ancestor,
@@ -705,14 +702,40 @@ dap.configurations.cpp = {
     -- https://www.kernel.org/doc/html/latest/admin-guide/LSM/Yama.html
     -- runInTerminal = false,
   },
+  {
+    name = 'Attach to Process',
+    type = 'lldb',
+    request = 'attach',
+    pid = require('dap.utils').pick_process,
+    cwd = '${workspaceFolder}',
+    justMyCode = false,
+  },
 }
 
 -- Configure Python DAP.
-dap.adapters.python = {
-  type = 'executable',
-  command = 'python',
-  args = { '-m', 'debugpy.adapter' }
-}
+dap.adapters.python = function(callback, config)
+  if config.request == 'attach' then
+    -- Attach to an existing debugpy instance.
+    callback({
+      type = 'server',
+      host = (config.connect or config).host or '127.0.0.1',
+      port = (config.connect or config).port or 5678,
+      options = {
+        source_filetype = 'python',
+      },
+    })
+  else
+    -- Launch a new debugpy instance.
+    callback({
+      type = 'executable',
+      command = 'python',
+      args = { '-m', 'debugpy.adapter' },
+      options = {
+        source_filetype = 'python',
+      },
+    })
+  end
+end
 
 dap.configurations.python = {
   {
@@ -739,26 +762,22 @@ dap.configurations.python = {
     end,
     justMyCode = true,
   },
-  -- {
-  --   type = 'python',
-  --   request = 'launch',
-  --   name = "Launch file",
-  --   program = "${file}", -- This configuration will launch the current file if used.
-  --   pythonPath = function()
-  --     -- Use the virtualenv in the current workspace or the system python.
-  --     local venv_path = os.getenv("VIRTUAL_ENV")
-  --     if venv_path then
-  --       return venv_path .. '/bin/python'
-  --     else
-  --       return '/usr/bin/python'
-  --     end
-  --   end,
-  --   env = function()
-  --     local config = read_json_config(vim.fn.getcwd() .. '/.nvim-dap.json')
-  --     return merge_environments(default_env, config and config.env or nil)
-  --   end,
-  --   justMyCode = true,
-  -- },
+  {
+    type = 'python',
+    request = 'attach',
+    name = 'Attach to Running Server',
+    connect = {
+      host = '127.0.0.1',
+      port = 5678,  -- The same port specified when starting debugpy
+    },
+    justMyCode = false,  -- Set to false to debug library code
+    pathMappings = {
+      {
+        localRoot = vim.fn.getcwd(),  -- Adjust if your code is in a different directory
+        remoteRoot = ".",             -- Adjust if needed
+      },
+    },
+  },
 }
 
 -- nvim dap UI
