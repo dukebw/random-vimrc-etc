@@ -86,7 +86,7 @@ runtime macros/matchit.vim
 let g:acp_enableAtStartup = 0
 
 " Set the Python3 provider.
-let g:python3_host_prog = "/home/ubuntu/work/modular/.derived/autovenv/bin/python"
+let g:python3_host_prog = "python"
 
 set backupdir=$HOME/.vim/backupdir
 set directory=$HOME/.vim/backupdir

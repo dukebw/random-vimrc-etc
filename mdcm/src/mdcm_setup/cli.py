@@ -1,6 +1,8 @@
 """Create and configure MDCM instance."""
 
+import base64
 import os
+import shlex
 import socket
 import subprocess
 from pathlib import Path
@@ -264,7 +266,9 @@ def install_configure(vm_ip: str, vm_name: str):
         ("sed -i 's/plugins=(git)/plugins=(git vi-mode)/' ~/.zshrc"),
     )
 
-    zshrc_epilogue = r"""alias fdh="fdfind --hidden --no-ignore"
+    # Encode the .zshrc epilogue to base64 to avoid issues with special
+    # characters on the command line.
+    zshrc_epilogue = base64.b64encode(r"""alias fdh="fdfind --hidden --no-ignore"
 export PYENV_ROOT="$HOME/.pyenv"
 [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init -)"
@@ -275,8 +279,6 @@ cd ~/work/modular
 source utils/start-modular.sh
 
 alias fdh='fdfind --hidden --no-ignore'
-alias bc='clear-mojo-packages; rm -rf .derived/.{max,mojo}_cache; $MODULAR_PATH/.derived/autovenv/bin/python3 $MODULAR_PATH/utils/build.py build modular all max-mojo custom_rope_target'
-alias ba='$MODULAR_PATH/.derived/autovenv/bin/python3 $MODULAR_PATH/utils/build.py build modular all max-mojo'
 source $MODULAR_DERIVED_PATH/autovenv/bin/activate
 export PATH=$PATH:/usr/local/go/bin
 
@@ -324,8 +326,6 @@ export PYTHONPATH=$MODULAR_PATH/bazel-bin/SDK/lib/API/python:$MODULAR_PATH/SDK/l
 export MYPYPATH=$PYTHONPATH
 export MODULAR_MOJO_MAX_COMPILERRT_PATH=$MODULAR_PATH/bazel-bin/KGEN/libKGENCompilerRTShared.so
 export MODULAR_MOJO_MAX_IMPORT_PATH=$MODULAR_PATH/bazel-bin/Kernels/mojo/buffer,$MODULAR_PATH/bazel-bin/Kernels/mojo/register,$MODULAR_PATH/bazel-bin/SDK/integration-test,$MODULAR_PATH/bazel-bin/open-source/mojo/stdlib/stdlib
-# Set MODULAR_HOME so that mojo-lsp-server works.
-export MODULAR_HOME=$MODULAR_DERIVED_PATH
 
 . "$HOME/.cargo/env"
 
@@ -348,10 +348,13 @@ alias ibt="$IBAZEL -bazel_path $MODULAR_PATH/bazelw test"
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 export BAZEL_AWS_ECR_PASSWORD=$(aws ecr get-login-password --region us-east-1)
 
-# Created by `pipx` on 2024-09-09 13:36:28
+# Put user-installed executables in PATH.
 export PATH="$PATH:/home/ubuntu/.local/bin"
-"""
-    run_ssh_command(ssh_client, f'echo "{zshrc_epilogue}" >> ~/.zshrc')
+""")
+    run_ssh_command(
+        ssh_client,
+        f'echo "{shlex.quote(zshrc_epilogue)}" | base64 --decode >> ~/.zshrc',
+    )
 
     # Install pyenv.
     run_ssh_command(
@@ -359,19 +362,15 @@ export PATH="$PATH:/home/ubuntu/.local/bin"
     )
 
     local_bazlerc = r"""# Build all code with -O3, -gline-tables-only, and -fno-omit-frame-pointer.
-build:sane-release --cc_output_directory_tag=sane-release
-build:sane-release --compilation_mode=opt
-build:sane-release --copt=-O3
-build:sane-release --copt=-gline-tables-only
-build:sane-release --copt=-fno-omit-frame-pointer
-build:sane-release --strip=never
-
-# Default everything to sane-release.
-build --config=sane-release --config=remote-intel --config=local-gpu
-run --config=sane-release
-test --config=sane-release
+# Override the toplevel setting in .bazelrc.
+build:remote --remote_download_outputs=all
+build --config=release --config=remote-intel --config=disable-mypy --config=local-gpu --//:kernel_e2e_gpu_profiling=true
+run --config=release --config=disable-mypy
+test --config=release --config=disable-mypy
 """
-    run_ssh_command(ssh_client, f'echo "{local_bazlerc}" >> ~/.zshrc')
+    run_ssh_command(
+        ssh_client, f'echo "{local_bazlerc}" >> ~/work/modular/local.bazlrc'
+    )
 
     # Install pnpm.
     run_ssh_command(
@@ -385,20 +384,26 @@ test --config=sane-release
     )
 
     # Install node.
-    run_ssh_command(ssh_client, "nvm install node")
+    run_ssh_command(ssh_client, "nvm install node && nvm use node")
 
     # Install bazelrc-lsp.
     run_ssh_command(
         ssh_client,
         (
-            "cd ~/work && gcl git@github.com:salesforce-misc/bazelrc-lsp && cd bazelrc-lsp/vscode-extension && pnpm i && pnpm package"
+            f"cd ~/work && {gcl} git@github.com:salesforce-misc/bazelrc-lsp && cd bazelrc-lsp/vscode-extension && pnpm i && pnpm package"
         ),
     )
 
     # Install bazel-lsp.
     run_ssh_command(
         ssh_client,
-        "cd ~/work && gcl git@github.com:cameron-martin/bazel-lsp && cd bazel-lsp && bazel build //:bazel-lsp -c opt",
+        f"cd ~/work && {gcl} git@github.com:cameron-martin/bazel-lsp && cd bazel-lsp && bazel build //:bazel-lsp -c opt",
+    )
+
+    # Install ibazel.
+    run_ssh_command(
+        ssh_client,
+        f"cd ~/work && {gcl} git@github.com:bazelbuild/bazel-watcher && cd bazel-watcher && bazel build //cmd/ibazel",
     )
 
     ssh_client.close()
