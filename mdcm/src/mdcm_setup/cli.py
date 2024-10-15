@@ -268,7 +268,7 @@ def install_configure(vm_ip: str, vm_name: str):
 
     # Encode the .zshrc epilogue to base64 to avoid issues with special
     # characters on the command line.
-    zshrc_epilogue = base64.b64encode(r"""alias fdh="fdfind --hidden --no-ignore"
+    zshrc_epilogue = r"""alias fdh="fdfind --hidden --no-ignore"
 export PYENV_ROOT="$HOME/.pyenv"
 [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init -)"
@@ -350,10 +350,13 @@ export BAZEL_AWS_ECR_PASSWORD=$(aws ecr get-login-password --region us-east-1)
 
 # Put user-installed executables in PATH.
 export PATH="$PATH:/home/ubuntu/.local/bin"
-""")
+"""
+    zshrc_epliogue_quoted = base64.b64encode(
+        zshrc_epilogue.encode("utf-8")
+    ).decode("utf-8")
     run_ssh_command(
         ssh_client,
-        f'echo "{shlex.quote(zshrc_epilogue)}" | base64 --decode >> ~/.zshrc',
+        f'echo "{zshrc_epliogue_quoted}" | base64 --decode >> ~/.zshrc',
     )
 
     # Install pyenv.
@@ -369,8 +372,11 @@ run --config=release --config=disable-mypy
 test --config=release --config=disable-mypy
 """
     run_ssh_command(
-        ssh_client, f'echo "{local_bazlerc}" >> ~/work/modular/local.bazlrc'
+        ssh_client, f'echo "{local_bazlerc}" >> ~/work/modular/local.bazelrc'
     )
+
+    # Install latest LLVM.
+    run_ssh_command(ssh_client, "cd ~/work/modular && ./utils/install-llvm.sh")
 
     # Install pnpm.
     run_ssh_command(
