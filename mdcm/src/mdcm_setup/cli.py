@@ -273,13 +273,12 @@ export PYENV_ROOT="$HOME/.pyenv"
 [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init -)"
 
-pyenv global 3.12
+pyenv global 3.11
 
 cd ~/work/modular
 source utils/start-modular.sh
 
 alias fdh='fdfind --hidden --no-ignore'
-source $MODULAR_DERIVED_PATH/autovenv/bin/activate
 export PATH=$PATH:/usr/local/go/bin
 
 # Fuzzy finder for Bazel.
@@ -322,8 +321,6 @@ _fzf_complete_stog() { _fzf_complete_bazel_test "$@" }
 export IBAZEL=/home/ubuntu/work/bazel-watcher/bazel-bin/cmd/ibazel/ibazel_/ibazel
 alias bz-cc='bazelw run //:refresh_compile_commands -- --bazel ./bazelw && bash $HOME/work/random-vimrc-etc/fix_compile_commands.sh'
 alias bz=$MODULAR_PATH/bazelw
-export PYTHONPATH=$MODULAR_PATH/bazel-bin/SDK/lib/API/python:$MODULAR_PATH/SDK/lib/API/python:$MODULAR_PATH/SDK/public/max-repo/pipelines/python
-export MYPYPATH=$PYTHONPATH
 export MODULAR_MOJO_MAX_COMPILERRT_PATH=$MODULAR_PATH/bazel-bin/KGEN/libKGENCompilerRTShared.so
 export MODULAR_MOJO_MAX_IMPORT_PATH=$MODULAR_PATH/bazel-bin/Kernels/mojo/buffer,$MODULAR_PATH/bazel-bin/Kernels/mojo/register,$MODULAR_PATH/bazel-bin/SDK/integration-test,$MODULAR_PATH/bazel-bin/open-source/mojo/stdlib/stdlib
 
@@ -350,6 +347,8 @@ export BAZEL_AWS_ECR_PASSWORD=$(aws ecr get-login-password --region us-east-1)
 
 # Put user-installed executables in PATH.
 export PATH="$PATH:/home/ubuntu/.local/bin"
+export EDITOR=nvim
+source <(fzf --zsh)
 """
     zshrc_epliogue_quoted = base64.b64encode(
         zshrc_epilogue.encode("utf-8")
@@ -361,7 +360,7 @@ export PATH="$PATH:/home/ubuntu/.local/bin"
 
     # Install pyenv.
     run_ssh_command(
-        ssh_client, "curl https://pyenv.run | bash && pyenv install 3.12"
+        ssh_client, "curl https://pyenv.run | bash && pyenv install 3.11"
     )
 
     local_bazlerc = r"""# Build all code with -O3, -gline-tables-only, and -fno-omit-frame-pointer.
@@ -412,8 +411,68 @@ test --config=release --config=disable-mypy
         f"cd ~/work && {gcl} git@github.com:bazelbuild/bazel-watcher && cd bazel-watcher && bazel build //cmd/ibazel",
     )
 
+    # Make local directory to install executables.
+    run_ssh_command(ssh_client, "mkdir -p ~/.local/bin")
+
+    # Install delta.
+    run_ssh_command(
+        ssh_client,
+        "cd ~/work && curl -fSsL https://github.com/dandavison/delta/releases/download/0.18.2/delta-0.18.2-x86_64-unknown-linux-gnu.tar.gz -o delta-0.18.2-x86_64-unknown-linux-gnu.tar.gz && ln -s $(pwd)/delta-0.18.2-x86_64-unknown-linux-gnu/delta ~/.local/bin",
+    )
+
     ssh_client.close()
     print("Installation and configuration completed.")
+
+    # Set .gitconfig.
+    gitconfig = r"""
+[blame]
+  pager = delta
+
+[core]
+	editor = nvim -u ~/.config/nvim/init.vim
+  pager = delta
+
+[delta]
+  features = calochortus-lyallii side-by-side
+  line-numbers = false
+  hyperlinks = true
+  navigate = true    # use n and N to move between diff sections
+  light = false      # set to true if you're in a terminal w/ a light background color (e.g. the default macOS terminal)
+
+[diff]
+  colorMoved = default
+
+[filter "lfs"]
+	required = true
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+
+[include]
+  path = ~/work/delta/themes.gitconfig
+
+[interactive]
+  diffFilter = delta --color-only
+
+[merge]
+  conflictstyle = diff3
+
+[pull]
+	rebase = false
+
+[user]
+	name = Brendan Duke
+	email = brendanw.duke@gmail.com
+[maintenance]
+	repo = /home/ubuntu/work/modular
+"""
+    gittconfig_quoted = base64.b64encode(
+        gitconfig.encode("utf-8")
+    ).decode("utf-8")
+    run_ssh_command(
+        ssh_client,
+        f'echo "{gittconfig_quoted}" | base64 --decode > ~/.gitconfig',
+    )
 
     os.system(f"ssh -i {key_path} {remote_username}@{vm_ip}")
 

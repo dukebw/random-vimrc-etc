@@ -504,8 +504,8 @@ lspconfig.mojo.setup {
 }
 
 --- Set up Bazel LSP.
-local bazel_lsp = "/Users/bduke/work/bazel-lsp/bazel-bin/bazel-lsp"
-local bazelrc_lsp = "/Users/bduke/work/bazelrc-lsp/vscode-extension/dist/bazelrc-lsp"
+local bazel_lsp = "/home/ubuntu/work/bazel-lsp/bazel-bin/bazel-lsp"
+local bazelrc_lsp = "/home/ubuntu/work/bazelrc-lsp/vscode-extension/dist/bazelrc-lsp"
 
 lspconfig.bzl.setup {
   cmd = {
