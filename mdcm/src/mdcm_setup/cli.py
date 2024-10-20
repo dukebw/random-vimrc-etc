@@ -240,6 +240,12 @@ def install_configure(vm_ip: str, vm_name: str):
         ),
     )
 
+    # Copy nvim-dap.json over to modular repo.
+    run_ssh_command(
+        ssh_client,
+        f"cp ~/work/random-vimrc-etc/.nvim-dap.json {remote_work_dir}/modular",
+    )
+
     # TODO: LLVM 16 works on c7g, but not LLVM 18.
     if not ("c7g" in vm_name):
         run_ssh_command(
@@ -466,13 +472,16 @@ test --config=release --config=disable-mypy
 [maintenance]
 	repo = /home/ubuntu/work/modular
 """
-    gittconfig_quoted = base64.b64encode(
-        gitconfig.encode("utf-8")
-    ).decode("utf-8")
+    gittconfig_quoted = base64.b64encode(gitconfig.encode("utf-8")).decode(
+        "utf-8"
+    )
     run_ssh_command(
         ssh_client,
         f'echo "{gittconfig_quoted}" | base64 --decode > ~/.gitconfig',
     )
+
+    # Install Tokei, the line of code counter.
+    run_ssh_command(ssh_client, "cargo install tokei")
 
     os.system(f"ssh -i {key_path} {remote_username}@{vm_ip}")
 
