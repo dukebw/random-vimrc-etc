@@ -42,6 +42,7 @@ Plug 'mfussenegger/nvim-dap'
 Plug 'nvim-neotest/nvim-nio'
 Plug 'rcarriga/nvim-dap-ui'
 Plug 'theHamsta/nvim-dap-virtual-text'
+Plug 'mfussenegger/nvim-dap-python'
 Plug 'nvimtools/none-ls.nvim'
 
 " All of your Plugins must be added before the following line
@@ -737,48 +738,8 @@ dap.adapters.python = function(callback, config)
   end
 end
 
-dap.configurations.python = {
-  {
-    type = 'python',
-    request = 'launch',
-    name = "Debug pytest file, or launch",
-    module = function()
-      return determine_program() == nil and 'pytest' or nil
-    end,
-    program = determine_program,
-    args = build_pytest_args,
-    pythonPath = function()
-      -- Use the virtualenv in the current workspace or the system python.
-      local venv_path = os.getenv("VIRTUAL_ENV")
-      if venv_path then
-        return venv_path .. '/bin/python'
-      else
-        return '/usr/bin/python'
-      end
-    end,
-    env = function()
-      local config = read_json_config(vim.fn.getcwd() .. '/.nvim-dap.json')
-      return merge_environments(default_env, config and config.env or nil)
-    end,
-    justMyCode = true,
-  },
-  {
-    type = 'python',
-    request = 'attach',
-    name = 'Attach to Running Server',
-    connect = {
-      host = '127.0.0.1',
-      port = 5678,  -- The same port specified when starting debugpy
-    },
-    justMyCode = false,  -- Set to false to debug library code
-    pathMappings = {
-      {
-        localRoot = vim.fn.getcwd(),  -- Adjust if your code is in a different directory
-        remoteRoot = ".",             -- Adjust if needed
-      },
-    },
-  },
-}
+require("dap-python").setup("python")
+-- python -m debugpy --version must work in the shell.
 
 -- nvim dap UI
 dapui.setup()
