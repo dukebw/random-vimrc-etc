@@ -738,7 +738,8 @@ dap.adapters.python = function(callback, config)
   end
 end
 
-require("dap-python").setup("python")
+require("dap-python").setup("/home/ubuntu/work/modular/.SDK+public+max-repo+pipelines+python+pipelines.venv/bin/python")
+require('dap-python').test_runner = 'pytest'
 -- python -m debugpy --version must work in the shell.
 
 -- nvim dap UI
@@ -763,6 +764,9 @@ vim.api.nvim_set_keymap('n', '<leader>wr', "<Cmd>lua require'dap'.repl.open()<CR
 vim.api.nvim_set_keymap('n', '<leader>wl', "<Cmd>lua require'dap'.run_last()<CR>", { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', '<leader>wt', "<Cmd>lua require'dap'.terminate()<CR>", { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', '<leader>wg', "<Cmd>lua require'dapui'.toggle()<CR>", { noremap = true, silent = true })
+
+-- dap-python
+vim.api.nvim_set_keymap('n', '<leader>wC', "<Cmd>lua require'dap-python'.test_method()<CR>", { noremap = true, silent = true })
 
 -- Open virtual text diagnostics into a window.
 vim.api.nvim_set_keymap('n', '<leader>of', "<Cmd>lua vim.diagnostic.open_float()<CR>", { noremap = true, silent = true })
