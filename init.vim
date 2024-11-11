@@ -471,7 +471,7 @@ lspconfig.tblgen_lsp_server.setup {
   on_attach = on_attach,
   cmd = {
     'tblgen-lsp-server',
-    '--tablegen-compilation-database=.derived/build-release/tablegen_compile_commands.yml',
+    '--tablegen-compilation-database=.derived/build/tablegen_compile_commands.yml',
   },
 }
 
