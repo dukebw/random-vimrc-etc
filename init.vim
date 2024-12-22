@@ -161,7 +161,7 @@ set cursorcolumn
 " NOTE(brendan): netrw is the built-in neovim file browser
 let g:netrw_liststyle = 3
 let g:netrw_banner = 0
-let g:netrw_browse_split = 2
+let g:netrw_browse_split = 0
 let g:netrw_winsize = 25
 let g:javascript_plugin_flow = 1
 let g:black_virtualenv = '~/.vim_black'
