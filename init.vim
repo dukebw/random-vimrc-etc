@@ -28,6 +28,7 @@ Plug 'nvim-lua/plenary.nvim'
 Plug 'nvim-telescope/telescope.nvim', { 'tag': '0.1.8' }
 Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
 Plug 'nvim-telescope/telescope-file-browser.nvim'
+Plug 'nvim-telescope/telescope-live-grep-args.nvim'
 Plug 'nvim-tree/nvim-web-devicons'
 Plug 'neovim/nvim-lspconfig'
 Plug 'sindrets/diffview.nvim'
@@ -44,6 +45,17 @@ Plug 'rcarriga/nvim-dap-ui'
 Plug 'theHamsta/nvim-dap-virtual-text'
 Plug 'mfussenegger/nvim-dap-python'
 Plug 'nvimtools/none-ls.nvim'
+
+" nvim-cmp
+Plug 'hrsh7th/cmp-nvim-lsp'
+Plug 'hrsh7th/cmp-buffer'
+Plug 'hrsh7th/cmp-path'
+Plug 'hrsh7th/cmp-cmdline'
+Plug 'hrsh7th/nvim-cmp'
+
+" For vsnip users.
+Plug 'hrsh7th/cmp-vsnip'
+Plug 'hrsh7th/vim-vsnip'
 
 " All of your Plugins must be added before the following line
 call plug#end()            " required
@@ -149,7 +161,7 @@ set cursorcolumn
 " NOTE(brendan): netrw is the built-in neovim file browser
 let g:netrw_liststyle = 3
 let g:netrw_banner = 0
-let g:netrw_browse_split = 2
+let g:netrw_browse_split = 0
 let g:netrw_winsize = 25
 let g:javascript_plugin_flow = 1
 let g:black_virtualenv = '~/.vim_black'
@@ -377,10 +389,94 @@ local function on_attach(client, bufnr)
     end
 end
 
+-- Set up nvim-cmp.
+-- https://github.com/hrsh7th/nvim-cmp
+local cmp = require'cmp'
+
+cmp.setup({
+  snippet = {
+    -- REQUIRED - you must specify a snippet engine
+    expand = function(args)
+      vim.fn["vsnip#anonymous"](args.body) -- For `vsnip` users.
+      -- require('luasnip').lsp_expand(args.body) -- For `luasnip` users.
+      -- require('snippy').expand_snippet(args.body) -- For `snippy` users.
+      -- vim.fn["UltiSnips#Anon"](args.body) -- For `ultisnips` users.
+      -- vim.snippet.expand(args.body) -- For native neovim snippets (Neovim v0.10+)
+    end,
+  },
+  window = {
+    -- completion = cmp.config.window.bordered(),
+    -- documentation = cmp.config.window.bordered(),
+  },
+  mapping = cmp.mapping.preset.insert({
+    ['<C-b>'] = cmp.mapping.scroll_docs(-4),
+    ['<C-f>'] = cmp.mapping.scroll_docs(4),
+    ['<C-Space>'] = cmp.mapping.complete(),
+    ['<C-e>'] = cmp.mapping.abort(),
+    ['<Tab>'] = cmp.mapping(function(fallback)
+      if cmp.visible() then
+        cmp.select_next_item() -- Tab to select the next item
+      else
+        fallback() -- If no suggestions, fallback to default Tab behavior
+      end
+    end, { "i", "s" }),
+    ['<S-Tab>'] = cmp.mapping(function(fallback)
+      if cmp.visible() then
+        cmp.select_prev_item() -- Shift+Tab to select the previous item
+      else
+        fallback() -- If no suggestions, fallback to default Shift+Tab behavior
+      end
+    end, { "i", "s" }),
+    ['<CR>'] = cmp.mapping.confirm({ select = true }), -- Accept currently selected item. Set `select` to `false` to only confirm explicitly selected items.
+  }),
+  sources = cmp.config.sources({
+    { name = 'nvim_lsp' },
+    { name = 'vsnip' }, -- For vsnip users.
+    -- { name = 'luasnip' }, -- For luasnip users.
+    -- { name = 'ultisnips' }, -- For ultisnips users.
+    -- { name = 'snippy' }, -- For snippy users.
+  }, {
+    { name = 'buffer' },
+  })
+})
+
+-- To use git you need to install the plugin petertriho/cmp-git and uncomment lines below
+-- Set configuration for specific filetype.
+--[[ cmp.setup.filetype('gitcommit', {
+  sources = cmp.config.sources({
+    { name = 'git' },
+  }, {
+    { name = 'buffer' },
+  })
+)
+require("cmp_git").setup() ]]-- 
+
+-- Use buffer source for `/` and `?` (if you enabled `native_menu`, this won't work anymore).
+cmp.setup.cmdline({ '/', '?' }, {
+  mapping = cmp.mapping.preset.cmdline(),
+  sources = {
+    { name = 'buffer' }
+  }
+})
+
+-- Use cmdline & path source for ':' (if you enabled `native_menu`, this won't work anymore).
+cmp.setup.cmdline(':', {
+  mapping = cmp.mapping.preset.cmdline(),
+  sources = cmp.config.sources({
+    { name = 'path' }
+  }, {
+    { name = 'cmdline' }
+  }),
+  matching = { disallow_symbol_nonprefix_matching = false }
+})
+
+-- Set up lspconfig.
+local capabilities = require('cmp_nvim_lsp').default_capabilities()
+
 -- Set up LSPs with common configurations.
-local servers = {'bzl', 'clangd', 'marksman', 'mojo', 'vimls'}
+local servers = {'bzl', 'clangd', 'marksman', 'mojo', 'vimls', 'yamlls'}
 for _, lsp in ipairs(servers) do
-    lspconfig[lsp].setup { on_attach = on_attach }
+    lspconfig[lsp].setup { on_attach = on_attach, capabilities = capabilities }
 end
 
 local modular_path = os.getenv("MODULAR_PATH")
@@ -390,6 +486,9 @@ local pipelines_source_pkgs = vim.fn.expand("$MODULAR_PATH/SDK/public/max-repo/p
 local pipelines_venv = vim.fn.expand("$MODULAR_PATH/.SDK+public+max-repo+pipelines+python+pipelines.venv")
 local python_exe = pipelines_venv .. "/bin/python"
 local ruff_exe = pipelines_venv .. "/bin/ruff"
+
+-- Set MYPYPATH
+vim.env.MYPYPATH = "external/rules_python~~pip~modular_pip_deps_311_click/site-packages:external/rules_python~~pip~modular_pip_deps_311_click/site-packages:external/rules_python~~pip~modular_pip_deps_311_huggingface_hub/site-packages:external/rules_python~~pip~modular_pip_deps_311_filelock/site-packages:external/rules_python~~pip~modular_pip_deps_311_fsspec/site-packages:external/rules_python~~pip~modular_pip_deps_311_packaging/site-packages:external/rules_python~~pip~modular_pip_deps_311_pyyaml/site-packages:external/rules_python~~pip~modular_pip_deps_311_certifi/site-packages:external/rules_python~~pip~modular_pip_deps_311_charset_normalizer/site-packages:external/rules_python~~pip~modular_pip_deps_311_idna/site-packages:external/rules_python~~pip~modular_pip_deps_311_urllib3/site-packages:external/rules_python~~pip~modular_pip_deps_311_requests/site-packages:external/rules_python~~pip~modular_pip_deps_311_tqdm/site-packages:external/rules_python~~pip~modular_pip_deps_311_huggingface_hub/site-packages:external/rules_python~~pip~modular_pip_deps_311_hypothesis/site-packages:external/rules_python~~pip~modular_pip_deps_311_attrs/site-packages:external/rules_python~~pip~modular_pip_deps_311_sortedcontainers/site-packages:external/rules_python~~pip~modular_pip_deps_311_hypothesis/site-packages:external/rules_python~~pip~modular_pip_deps_311_pytest_asyncio/site-packages:external/rules_python~~pip~modular_pip_deps_311_iniconfig/site-packages:external/rules_python~~pip~modular_pip_deps_311_packaging/site-packages:external/rules_python~~pip~modular_pip_deps_311_pluggy/site-packages:external/rules_python~~pip~modular_pip_deps_311_pytest/site-packages:external/rules_python~~pip~modular_pip_deps_311_pytest_asyncio/site-packages:external/rules_python~~pip~modular_pip_deps_311_pytest_xdist/site-packages:external/rules_python~~pip~modular_pip_deps_311_execnet/site-packages:external/rules_python~~pip~modular_pip_deps_311_iniconfig/site-packages:external/rules_python~~pip~modular_pip_deps_311_packaging/site-packages:external/rules_python~~pip~modular_pip_deps_311_pluggy/site-packages:external/rules_python~~pip~modular_pip_deps_311_pytest/site-packages:external/rules_python~~pip~modular_pip_deps_311_pytest_xdist/site-packages:external/rules_python~~pip~modular_pip_deps_311_torch/site-packages:external/rules_python~~pip~modular_pip_deps_311_filelock/site-packages:external/rules_python~~pip~modular_pip_deps_311_fsspec/site-packages:external/rules_python~~pip~modular_pip_deps_311_markupsafe/site-packages:external/rules_python~~pip~modular_pip_deps_311_jinja2/site-packages:external/rules_python~~pip~modular_pip_deps_311_networkx/site-packages:external/rules_python~~pip~modular_pip_deps_311_mpmath/site-packages:external/rules_python~~pip~modular_pip_deps_311_sympy/site-packages:external/rules_python~~pip~modular_pip_deps_311_torch/site-packages:external/rules_python~~pip~modular_pip_deps_311_transformers/site-packages:external/rules_python~~pip~modular_pip_deps_311_filelock/site-packages:external/rules_python~~pip~modular_pip_deps_311_fsspec/site-packages:external/rules_python~~pip~modular_pip_deps_311_packaging/site-packages:external/rules_python~~pip~modular_pip_deps_311_pyyaml/site-packages:external/rules_python~~pip~modular_pip_deps_311_certifi/site-packages:external/rules_python~~pip~modular_pip_deps_311_charset_normalizer/site-packages:external/rules_python~~pip~modular_pip_deps_311_idna/site-packages:external/rules_python~~pip~modular_pip_deps_311_urllib3/site-packages:external/rules_python~~pip~modular_pip_deps_311_requests/site-packages:external/rules_python~~pip~modular_pip_deps_311_tqdm/site-packages:external/rules_python~~pip~modular_pip_deps_311_huggingface_hub/site-packages:external/rules_python~~pip~modular_pip_deps_311_numpy/site-packages:external/rules_python~~pip~modular_pip_deps_311_regex/site-packages:external/rules_python~~pip~modular_pip_deps_311_safetensors/site-packages:external/rules_python~~pip~modular_pip_deps_311_tokenizers/site-packages:external/rules_python~~pip~modular_pip_deps_311_transformers/site-packages:external/rules_python~~pip~modular_pip_deps_311_pytest/site-packages:external/rules_python~~pip~modular_pip_deps_311_iniconfig/site-packages:external/rules_python~~pip~modular_pip_deps_311_packaging/site-packages:external/rules_python~~pip~modular_pip_deps_311_pluggy/site-packages:external/rules_python~~pip~modular_pip_deps_311_pytest/site-packages:external/rules_python~/site-packages:external/rules_python~:site-packages:SDK/integration-test/pipelines/python:SDK/lib/API/python:SDK/public/max-repo/pipelines/python:rules_python~:SDK/integration-test/pipelines/python/test_common:SDK/integration-test/pipelines/python/llama3:SDK/integration-test/API/python/graph_tests:Support/python:bazel-out/k8-opt-release/bin:bazel-out/k8-opt-release/bin/site-packages:bazel-out/k8-opt-release/bin/SDK/integration-test/pipelines/python:bazel-out/k8-opt-release/bin/SDK/lib/API/python:bazel-out/k8-opt-release/bin/SDK/public/max-repo/pipelines/python:bazel-out/k8-opt-release/bin/rules_python~:bazel-out/k8-opt-release/bin/SDK/integration-test/pipelines/python/test_common:bazel-out/k8-opt-release/bin/SDK/integration-test/pipelines/python/llama3:bazel-out/k8-opt-release/bin/SDK/integration-test/API/python/graph_tests:bazel-out/k8-opt-release/bin/Support/python:SDK/integration-test/pipelines/python/llama3/testdata:/home/ubuntu/.cache/bazel/_bazel_ubuntu/a5171e680520db7be14c4ce5f82e546f/execroot/_main/bazel-out/k8-fastbuild-default/bin/SDK/public/max-repo/pipelines/python/pipelines.venv.runfiles/_main/SDK/lib/API/python"
 
 lspconfig.pylsp.setup {
     cmd = { python_exe, '-m', 'pylsp' },
@@ -419,7 +518,7 @@ lspconfig.pylsp.setup {
                   -- TD003: missing issue link on the line following this TODO.
                   ignore = { "D401", "D413", "COM812", "TD003" },
                   perFileIgnores = { ["__init__.py"] = {"F401"} },  -- Rules that should be ignored for specific files
-                  preview = true,  -- Whether to enable the preview style linting and formatting.
+                  preview = false,  -- Whether to enable the preview style linting and formatting.
                   targetVersion = "py39",  -- The minimum python version to target (applies for both linting and formatting).
                 },
                 jedi = {
@@ -433,16 +532,10 @@ lspconfig.pylsp.setup {
                 -- Type checking.
                 pylsp_mypy = {
                   enabled = true,
-                  -- overrides = {
-                  --     "--python-executable", python_exe,
-                  --     "--show-column-numbers",
-                  --     "--show-error-codes",
-                  --     "--no-pretty",
-                  --     true,
-                  -- },
-                  -- report_progress = true,
-                  -- live_mode = true,
+                  live_mode = false,
+                  report_progress = false,
                   config = modular_path .. "/mypy.ini",
+                  -- dmypy = true,
                 },
                 pylint = {
                   enabled = false  -- Disable pylint to avoid conflicts
@@ -471,7 +564,7 @@ lspconfig.tblgen_lsp_server.setup {
   on_attach = on_attach,
   cmd = {
     'tblgen-lsp-server',
-    '--tablegen-compilation-database=.derived/build-release/tablegen_compile_commands.yml',
+    '--tablegen-compilation-database=.derived/build/tablegen_compile_commands.yml',
   },
 }
 
@@ -502,6 +595,7 @@ lspconfig.mojo.setup {
   root_dir = util.find_git_ancestor,
   single_file_support = true,
   on_attach = on_attach,
+  capabilities = capabilities
 }
 
 --- Set up Bazel LSP.
@@ -742,6 +836,11 @@ require("dap-python").setup("/home/ubuntu/work/modular/.SDK+public+max-repo+pipe
 require('dap-python').test_runner = 'pytest'
 -- python -m debugpy --version must work in the shell.
 
+-- Loop over all Python configurations and set justMyCode to false
+for _, config in ipairs(dap.configurations.python) do
+  config.justMyCode = false
+end
+
 -- nvim dap UI
 dapui.setup()
 require("nvim-dap-virtual-text").setup()
@@ -766,7 +865,7 @@ vim.api.nvim_set_keymap('n', '<leader>wt', "<Cmd>lua require'dap'.terminate()<CR
 vim.api.nvim_set_keymap('n', '<leader>wg', "<Cmd>lua require'dapui'.toggle()<CR>", { noremap = true, silent = true })
 
 -- dap-python
-vim.api.nvim_set_keymap('n', '<leader>wC', "<Cmd>lua require'dap-python'.test_method()<CR>", { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>wC', "<Cmd>lua require'dap-python'.test_method({ config = { justMyCode = false } })<CR>", { noremap = true, silent = true })
 
 -- Open virtual text diagnostics into a window.
 vim.api.nvim_set_keymap('n', '<leader>of', "<Cmd>lua vim.diagnostic.open_float()<CR>", { noremap = true, silent = true })

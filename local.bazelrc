@@ -1,0 +1,3 @@
+# Override the toplevel setting in .bazelrc.
+build:remote --remote_download_outputs=all
+build --config=remote-intel --config=local-gpu --internal_spawn_scheduler --spawn_strategy=dynamic,remote,worker,sandboxed,local --//:kernel_e2e_gpu_profiling=true
