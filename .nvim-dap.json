@@ -1,13 +1,4 @@
 {
-  "run_with_pytest": false,
-  "test_function": "test_broadcast_to_tensor_value",
   "program": "python",
-  "args": ["llama3", "--prompt", "I believe the meaning of life is", "--quantization-encoding", "bfloat16"],
-  "cpp_args": ["/home/ubuntu/work/modular/SDK/public/max-repo/pipelines/python/pipelines.py", "llama3", "--prompt", "I believe the meaning of life is", "--quantization-encoding", "bfloat16"],
-  "python_file": "/home/ubuntu/work/modular/SDK/public/max-repo/pipelines/python/pipelines.py",
-  "env": {
-    "MODULAR_MOJO_MAX_COMPILERRT_PATH": "/home/ubuntu/work/modular/bazel-bin/KGEN/libKGENCompilerRTShared.so",
-    "MODULAR_MOJO_MAX_IMPORT_PATH": "/home/ubuntu/work/modular/bazel-bin/Kernels/mojo/buffer,/home/ubuntu/work/modular/bazel-bin/Kernels/mojo/register,/home/ubuntu/work/modular/bazel-bin/SDK/integration-test,/home/ubuntu/work/modular/bazel-bin/open-source/mojo/stdlib/stdlib",
-    "TMP_USE_OPAQUE": "1"
-  }
+  "cpp_args": ["-m", "pytest", "SDK/integration-test/pipelines/python/nn/kv_cache/test_kv_cache.py", "-k", "test_kv_cache"]
 }
