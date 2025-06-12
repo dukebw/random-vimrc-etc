@@ -21,12 +21,10 @@ export PYENV_ROOT="$HOME/.pyenv"
 [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init -)"
 
-pyenv global 3.11
+pyenv global 3.12
 
 cd ~/work/modular
 source utils/start-modular.sh
-# Don't use Modular's stack-pr.
-unset -f stack-pr
 
 alias fdh='fdfind --hidden --no-ignore'
 export PATH=$PATH:/usr/local/go/bin
@@ -99,20 +97,20 @@ export PATH="$PATH:/home/ubuntu/.local/bin"
 export EDITOR=nvim
 source <(fzf --zsh)
 
-# Ugh.
-alias mpython=/home/ubuntu/work/modular/.SDK+public+max-repo+pipelines+python+pipelines.venv/bin/python
 export PIPELINES_TESTDATA=$MODULAR_PATH/SDK/integration-test/pipelines/python/llama3/testdata
 export MODULAR_CUDA_QUERY_PATH=$MODULAR_PATH/bazel-bin/Kernels/tools/gpu-query/gpu-query
+
+# Environment variables to convince pylsp_mypy to work as expected with Bazel.
+export MAX_PYTHON_VENV=$MODULAR_PATH/.SDK+lib+API+python+max+entrypoints+pipelines.venv
+# This is used in my Neovim config.
+export PYLSP_VENV_PATH=$MAX_PYTHON_VENV
+export PYLSP_MYPY_CONFIG=$HOME/work/modular/mypy.ini
+export MYPYPATH=$MODULAR_PATH/bazel-bin/SDK/lib/API/python/max/entrypoints/pipelines.runfiles/_main/SDK/lib/API/python
+source $MAX_PYTHON_VENV/bin/activate
 
 # Allow debugging to attach to process, and profiling.
 sudo sysctl -w kernel.yama.ptrace_scope=0
 export HF_TOKEN=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
-
-# Environment variables to convince pylsp_mypy to work as expected with Bazel.
-export PYLSP_VENV_PATH=$HOME/work/modular/.SDK+public+max-repo+pipelines+python+pipelines.venv/
-export PYLSP_MYPY_CONFIG=$HOME/work/modular/mypy.ini
-export MYPYPATH=$MODULAR_PATH/bazel-bin/SDK/public/max-repo/pipelines/python/pipelines.venv.runfiles/_main/SDK/lib/API/python/:$MODULAR_PATH/bazel-bin/SDK/public/max-repo/pipelines/python/pipelines.venv.runfiles/_main/SDK/public/max-repo/pipelines/python
-source $PYLSP_VENV_PATH/bin/activate
 
 # Add additional environment variables.
 [ -f ~/.env ] && source ~/.env
@@ -151,16 +149,22 @@ def cli():
 def install_configure(vm_ip: str, vm_name: str):
     """SSH into the VM and run install and configuration commands."""
     remote_work_dir = "~/work"
-    gcl = "git clone --recurse-submodules"
+    gcl = "GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no' git clone --recurse-submodules"
 
     # Same command as in your ~/.ssh/config
-    proxy_cmd = f'/usr/local/bin/coder --global-config "/Users/bduke/Library/Application Support/coderv2" ssh --stdio {vm_name}'
+    proxy_cmd = f"/usr/local/bin/coder ssh --stdio {vm_name}"
+    # proxy_cmd = "ssh -i ~/.ssh/mdcm.pem -o StrictHostKeyChecking=no -W 10.250.102.186:22 ubuntu@10.250.102.186"
 
     with ProxyCommand(proxy_cmd) as proxy_socket:
         transport = paramiko.Transport(proxy_socket)
         transport.start_client()
         # Attempt none authentication explicitly
         transport.auth_none(remote_username)
+        # private_key = paramiko.Ed25519Key.from_private_key_file(
+        #     Path("~/.ssh/mdcm.pem").expanduser()
+        # )
+        # transport.connect(username=remote_username, pkey=private_key)
+        # transport.connect(username=remote_username)
 
         # If we get here, 'none' authentication worked.
         ssh_client = paramiko.SSHClient()
@@ -168,6 +172,17 @@ def install_configure(vm_ip: str, vm_name: str):
         # Now you can execute commands as usual:
         stdin, stdout, stderr = ssh_client.exec_command("ls")
         print(stdout.read().decode("utf-8"))
+
+        # Ensure .ssh directory exists on remote.
+        run_ssh_command(ssh_client, "mkdir -p ~/.ssh && chmod 700 ~/.ssh")
+
+        # Upload local SSH key to the remote instance.
+        with ssh_client.open_sftp() as sftp_client:
+            local_ssh_key = Path("~/.ssh/id_ed25519").expanduser()
+            if local_ssh_key.exists():
+                remote_key_path = ".ssh/id_ed25519"
+                sftp_client.put(str(local_ssh_key), remote_key_path)
+                sftp_client.chmod(remote_key_path, 0o600)  # Required by SSH
 
         # Create SFTP client for file transfers.
         with ssh_client.open_sftp() as sftp_client:
@@ -194,7 +209,7 @@ def install_configure(vm_ip: str, vm_name: str):
         )
         run_ssh_command(
             ssh_client,
-            f"sudo {apt} install -y expect xclip zsh protobuf-compiler fd-find pipx less",
+            f"sudo {apt} install -y expect xclip zsh protobuf-compiler fd-find pipx less git-lfs make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev",
         )
         run_ssh_command(ssh_client, "pipx install stack-pr")
         run_ssh_command(ssh_client, "sudo passwd -d `whoami`")
@@ -238,14 +253,14 @@ def install_configure(vm_ip: str, vm_name: str):
             ssh_client,
             (
                 "curl -fsSL"
-                " https://github.com/neovim/neovim/releases/download/v0.10.3/nvim-linux64.tar.gz"
+                " https://github.com/neovim/neovim/releases/download/v0.11.0/nvim-linux-x86_64.tar.gz"
                 " -o nvim-linux64.tar.gz"
             ),
         )
         run_ssh_command(ssh_client, "tar zxf nvim-linux64.tar.gz")
         run_ssh_command(
             ssh_client,
-            "sudo ln -s $(pwd)/nvim-linux64/bin/nvim /usr/local/bin",
+            "sudo ln -s $(pwd)/nvim-linux-x86_64/bin/nvim /usr/local/bin",
         )
 
         run_ssh_command(
@@ -349,7 +364,7 @@ def install_configure(vm_ip: str, vm_name: str):
 
         # Install pyenv.
         run_ssh_command(
-            ssh_client, "curl https://pyenv.run | bash && pyenv install 3.11"
+            ssh_client, "curl https://pyenv.run | bash && pyenv install 3.12"
         )
 
         # Install latest LLVM.
@@ -637,7 +652,7 @@ def coder(vm_name: str) -> None:
         # Install pyenv.
         run_ssh_command(
             ssh_client,
-            "curl https://pyenv.run | bash && pyenv install 3.11",
+            "curl https://pyenv.run | bash && pyenv install 3.12",
         )
 
         # Install latest LLVM.
