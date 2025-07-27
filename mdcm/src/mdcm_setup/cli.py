@@ -2,7 +2,7 @@
 
 import base64
 import os
-import socket
+import sys
 from pathlib import Path
 
 import click
@@ -118,22 +118,25 @@ export HF_TOKEN=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
 
 
 def run_ssh_command(ssh_client, command, timeout=None):
-    print(command)
-    try:
-        _, stdout, stderr = ssh_client.exec_command(command, timeout=timeout)
+    chan = ssh_client.get_transport().open_session()
+    chan.settimeout(timeout or 60)
+    chan.exec_command(command)
 
-        # Continuously read and print stdout
-        for line in iter(stdout.readline, ""):
-            print(line, end="")
+    stdout = chan.makefile("r")
+    stderr = chan.makefile_stderr("r")
 
-        # Check for any errors
-        error_output = stderr.read().decode()
-        if error_output:
-            print(f"SSH command error: {error_output}")
+    # Stream both pipes without mis-labelling normal progress text.
+    for line in iter(stdout.readline, ""):
+        print(line, end="")
 
-            stdout.channel.recv_exit_status()
-    except socket.timeout:
-        print("Command timed out.")
+    for line in iter(stderr.readline, ""):
+        # print to console but don't assume failure.
+        print(line, end="", file=sys.stderr)
+
+    exit_status = chan.recv_exit_status()
+    if exit_status != 0:
+        # Intentionally continue.
+        print(f"{command!r} failed with exit = {exit_status}")
 
 
 @click.group()
@@ -152,7 +155,7 @@ def install_configure(vm_ip: str, vm_name: str):
     gcl = "GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no' git clone --recurse-submodules"
 
     # Same command as in your ~/.ssh/config
-    proxy_cmd = f"/usr/local/bin/coder ssh --stdio {vm_name}"
+    proxy_cmd = f'/usr/local/bin/coder --global-config "/Users/bduke/Library/Application Support/coderv2" ssh --stdio {vm_name}'
     # proxy_cmd = "ssh -i ~/.ssh/mdcm.pem -o StrictHostKeyChecking=no -W 10.250.102.186:22 ubuntu@10.250.102.186"
 
     with ProxyCommand(proxy_cmd) as proxy_socket:
@@ -489,7 +492,7 @@ def install_configure(vm_ip: str, vm_name: str):
         # Install fzf.
         run_ssh_command(
             ssh_client,
-            "git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf && ~/.fzf/install --all --no-bash --no-zsh --no-fish --no-update-rc",
+            "git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf && ~/.fzf/install --all --no-bash --no-fish",
         )
 
         run_ssh_command(
@@ -585,24 +588,24 @@ def coder(vm_name: str) -> None:
 
         # TODO: this should be in install-dependencies.py
         run_ssh_command(ssh_client, f"sudo {apt} install -y libtbb-dev")
-        run_ssh_command(
-            ssh_client,
-            f"sudo {apt} install -y ~/NsightSystems-linux-cli-public-2024.7.1.84-3512561.deb",
-        )
+        # run_ssh_command(
+        #     ssh_client,
+        #     f"sudo {apt} install -y ~/NsightSystems-linux-cli-public-2024.7.1.84-3512561.deb",
+        # )
 
         # Install neovim.
         run_ssh_command(
             ssh_client,
             (
                 "curl -fsSL"
-                " https://github.com/neovim/neovim/releases/download/v0.10.3/nvim-linux64.tar.gz"
-                " -o nvim-linux64.tar.gz"
+                " https://github.com/neovim/neovim/releases/download/v0.11.1/nvim-linux-x86_64.tar.gz"
+                " -o nvim-linux-x86_64.tar.gz"
             ),
         )
-        run_ssh_command(ssh_client, "tar zxf nvim-linux64.tar.gz")
+        run_ssh_command(ssh_client, "tar zxf nvim-linux-x86_64.tar.gz")
         run_ssh_command(
             ssh_client,
-            "sudo ln -s $(pwd)/nvim-linux64/bin/nvim /usr/local/bin",
+            "sudo ln -s $(pwd)/nvim-linux-x86_64/bin/nvim /usr/local/bin",
         )
 
         run_ssh_command(
