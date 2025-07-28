@@ -146,9 +146,7 @@ def cli():
 
 @cli.command()
 @click.option("--vm-ip", type=str, required=True, help="IP address of the VM")
-@click.option(
-    "--vm-name", type=str, default="c6i.16xlarge", help="Name of the VM"
-)
+@click.option("--vm-name", type=str, default="c6i.16xlarge", help="Name of the VM")
 def install_configure(vm_ip: str, vm_name: str):
     """SSH into the VM and run install and configuration commands."""
     remote_work_dir = "~/work"
@@ -240,9 +238,7 @@ def install_configure(vm_ip: str, vm_name: str):
             ssh_client, f"echo -e '{expect_script}' > install_oh_my_zsh.expect"
         )
         run_ssh_command(ssh_client, "chmod +x install_oh_my_zsh.expect")
-        run_ssh_command(
-            ssh_client, "rm -rf ~/.oh-my-zsh && ./install_oh_my_zsh.expect"
-        )
+        run_ssh_command(ssh_client, "rm -rf ~/.oh-my-zsh && ./install_oh_my_zsh.expect")
 
         # TODO: this should be in install-dependencies.py
         run_ssh_command(ssh_client, f"sudo {apt} install -y libtbb-dev")
@@ -289,38 +285,62 @@ def install_configure(vm_ip: str, vm_name: str):
                 " install_dev_deps"
             ),
         )
+        # Setup vim syntax highlighting for MLIR, LLVM, and Mojo
+        # First, trigger LLVM download by running a simple bazel query
+        run_ssh_command(
+            ssh_client,
+            f"cd {remote_work_dir}/modular && ./bazelw query @llvm-project//... --keep_going --noshow_progress 2>/dev/null || true",
+        )
+
+        # Setup MLIR syntax highlighting
         run_ssh_command(
             ssh_client,
             (
-                f"cd {remote_work_dir}/modular/third-party/llvm-project/mlir && for FOLDER in"
-                " ftdetect ftplugin indent syntax; do mkdir -p ~/.config/nvim/$FOLDER &&"
-                " ln -s $(pwd)/utils/vim/$FOLDER/mlir.vim ~/.config/nvim/$FOLDER/mlir.vim;"
-                " done"
+                f"cd {remote_work_dir}/modular && "
+                "LLVM_PATH=bazel-modular/external/+http_archive+llvm-raw && "
+                "if [ -d $LLVM_PATH/mlir/utils/vim ]; then "
+                "  for FOLDER in ftdetect ftplugin indent syntax; do "
+                "    mkdir -p ~/.config/nvim/$FOLDER && "
+                "    [ -f $LLVM_PATH/mlir/utils/vim/$FOLDER/mlir.vim ] && "
+                "    ln -sf $(pwd)/$LLVM_PATH/mlir/utils/vim/$FOLDER/mlir.vim ~/.config/nvim/$FOLDER/mlir.vim; "
+                "  done; "
+                "fi"
             ),
         )
-        run_ssh_command(
-            ssh_client,
-            "cp ~/work/random-vimrc-etc/local.bazelrc ~/work/modular",
-        )
 
+        # Setup LLVM syntax highlighting (tablegen, llvm, llvm-lit, mir)
         for filetype in ["tablegen", "llvm", "llvm-lit", "mir"]:
             run_ssh_command(
                 ssh_client,
                 (
-                    f"cd {remote_work_dir}/modular/third-party/llvm-project/llvm && for FOLDER in"
-                    " ftdetect ftplugin indent syntax; do mkdir -p ~/.config/nvim/$FOLDER &&"
-                    f" ln -s $(pwd)/utils/vim/$FOLDER/{filetype}.vim ~/.config/nvim/$FOLDER/{filetype}.vim;"
-                    " done"
+                    f"cd {remote_work_dir}/modular && "
+                    "LLVM_PATH=bazel-modular/external/+http_archive+llvm-raw && "
+                    "if [ -d $LLVM_PATH/llvm/utils/vim ]; then "
+                    "  for FOLDER in ftdetect ftplugin indent syntax; do "
+                    "    mkdir -p ~/.config/nvim/$FOLDER && "
+                    f"    [ -f $LLVM_PATH/llvm/utils/vim/$FOLDER/{filetype}.vim ] && "
+                    f"    ln -sf $(pwd)/$LLVM_PATH/llvm/utils/vim/$FOLDER/{filetype}.vim ~/.config/nvim/$FOLDER/{filetype}.vim; "
+                    "  done; "
+                    "fi"
                 ),
             )
+
+        # Setup Mojo syntax highlighting
         run_ssh_command(
             ssh_client,
             (
-                f"cd {remote_work_dir}/modular && for FOLDER in autoload ftdetect"
-                " ftplugin indent syntax; do mkdir -p ~/.config/nvim/$FOLDER && ln -s"
-                " $(pwd)/utils/mojo/vim/$FOLDER/mojo.vim ~/.config/nvim/$FOLDER/mojo.vim;"
-                " done"
+                f"cd {remote_work_dir}/modular && "
+                "for FOLDER in autoload ftdetect ftplugin indent syntax; do "
+                "  mkdir -p ~/.config/nvim/$FOLDER && "
+                "  [ -f utils/mojo/vim/$FOLDER/mojo.vim ] && "
+                "  ln -sf $(pwd)/utils/mojo/vim/$FOLDER/mojo.vim ~/.config/nvim/$FOLDER/mojo.vim; "
+                "done"
             ),
+        )
+
+        run_ssh_command(
+            ssh_client,
+            "cp ~/work/random-vimrc-etc/local.bazelrc ~/work/modular",
         )
 
         # Copy nvim-dap.json over to modular repo.
@@ -330,7 +350,7 @@ def install_configure(vm_ip: str, vm_name: str):
         )
 
         # TODO: LLVM 16 works on c7g, but not LLVM 18.
-        if not ("c7g" in vm_name):
+        if "c7g" not in vm_name:
             run_ssh_command(
                 ssh_client,
                 ('sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"'),
@@ -357,9 +377,9 @@ def install_configure(vm_ip: str, vm_name: str):
 
         # Encode the .zshrc epilogue to base64 to avoid issues with special
         # characters on the command line.
-        zshrc_epilogue_quoted = base64.b64encode(
-            ZSHRC_EPILOGUE.encode("utf-8")
-        ).decode("utf-8")
+        zshrc_epilogue_quoted = base64.b64encode(ZSHRC_EPILOGUE.encode("utf-8")).decode(
+            "utf-8"
+        )
         run_ssh_command(
             ssh_client,
             f'echo "{zshrc_epilogue_quoted}" | base64 --decode >> ~/.zshrc',
@@ -371,14 +391,10 @@ def install_configure(vm_ip: str, vm_name: str):
         )
 
         # Install latest LLVM.
-        run_ssh_command(
-            ssh_client, "cd ~/work/modular && ./utils/install-llvm.sh"
-        )
+        run_ssh_command(ssh_client, "cd ~/work/modular && ./utils/install-llvm.sh")
 
         # Install pnpm.
-        run_ssh_command(
-            ssh_client, "curl -fsSL https://get.pnpm.io/install.sh | sh -"
-        )
+        run_ssh_command(ssh_client, "curl -fsSL https://get.pnpm.io/install.sh | sh -")
 
         # Install nvm.
         run_ssh_command(
@@ -463,9 +479,7 @@ def install_configure(vm_ip: str, vm_name: str):
 [maintenance]
 	repo = /home/ubuntu/work/modular
 """
-        gittconfig_quoted = base64.b64encode(gitconfig.encode("utf-8")).decode(
-            "utf-8"
-        )
+        gittconfig_quoted = base64.b64encode(gitconfig.encode("utf-8")).decode("utf-8")
         run_ssh_command(
             ssh_client,
             f'echo "{gittconfig_quoted}" | base64 --decode > ~/.gitconfig',
@@ -485,9 +499,7 @@ def install_configure(vm_ip: str, vm_name: str):
 
         # Set up python dependencies.
         # nvim-dap-python needs debugpy.
-        run_ssh_command(
-            ssh_client, "pip install --upgrade pip debugpy pynvim nvitop"
-        )
+        run_ssh_command(ssh_client, "pip install --upgrade pip debugpy pynvim nvitop")
 
         # Install fzf.
         run_ssh_command(
@@ -507,9 +519,7 @@ def install_configure(vm_ip: str, vm_name: str):
 
 
 @cli.command()
-@click.option(
-    "--vm-name", type=str, default="bduke-a100", help="Name of the VM"
-)
+@click.option("--vm-name", type=str, default="bduke-a100", help="Name of the VM")
 def coder(vm_name: str) -> None:
     """SSH into the VM and run install and configuration commands."""
     gcl = "git clone --recurse-submodules"
@@ -582,9 +592,7 @@ def coder(vm_name: str) -> None:
             f"echo -e '{expect_script}' > install_oh_my_zsh.expect",
         )
         run_ssh_command(ssh_client, "chmod +x install_oh_my_zsh.expect")
-        run_ssh_command(
-            ssh_client, "rm -rf ~/.oh-my-zsh && ./install_oh_my_zsh.expect"
-        )
+        run_ssh_command(ssh_client, "rm -rf ~/.oh-my-zsh && ./install_oh_my_zsh.expect")
 
         # TODO: this should be in install-dependencies.py
         run_ssh_command(ssh_client, f"sudo {apt} install -y libtbb-dev")
@@ -644,9 +652,9 @@ def coder(vm_name: str) -> None:
 
         # Encode the .zshrc epilogue to base64 to avoid issues with special
         # characters on the command line.
-        zshrc_epilogue_quoted = base64.b64encode(
-            ZSHRC_EPILOGUE.encode("utf-8")
-        ).decode("utf-8")
+        zshrc_epilogue_quoted = base64.b64encode(ZSHRC_EPILOGUE.encode("utf-8")).decode(
+            "utf-8"
+        )
         run_ssh_command(
             ssh_client,
             f'echo "{zshrc_epilogue_quoted}" | base64 --decode >> ~/.zshrc',
@@ -659,14 +667,10 @@ def coder(vm_name: str) -> None:
         )
 
         # Install latest LLVM.
-        run_ssh_command(
-            ssh_client, "cd ~/work/modular && ./utils/install-llvm.sh"
-        )
+        run_ssh_command(ssh_client, "cd ~/work/modular && ./utils/install-llvm.sh")
 
         # Install pnpm.
-        run_ssh_command(
-            ssh_client, "curl -fsSL https://get.pnpm.io/install.sh | sh -"
-        )
+        run_ssh_command(ssh_client, "curl -fsSL https://get.pnpm.io/install.sh | sh -")
 
         # Install nvm.
         run_ssh_command(
@@ -751,9 +755,7 @@ def coder(vm_name: str) -> None:
 [maintenance]
         repo = /home/ubuntu/work/modular
 """
-        gittconfig_quoted = base64.b64encode(gitconfig.encode("utf-8")).decode(
-            "utf-8"
-        )
+        gittconfig_quoted = base64.b64encode(gitconfig.encode("utf-8")).decode("utf-8")
         run_ssh_command(
             ssh_client,
             f'echo "{gittconfig_quoted}" | base64 --decode > ~/.gitconfig',
@@ -778,9 +780,7 @@ def coder(vm_name: str) -> None:
 
         # Set up python dependencies.
         # nvim-dap-python needs debugpy.
-        run_ssh_command(
-            ssh_client, "pip install --upgrade pip debugpy pynvim nvitop"
-        )
+        run_ssh_command(ssh_client, "pip install --upgrade pip debugpy pynvim nvitop")
 
         # Install fzf.
         run_ssh_command(
