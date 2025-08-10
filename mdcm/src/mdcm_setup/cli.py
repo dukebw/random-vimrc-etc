@@ -428,6 +428,46 @@ def install_configure(vm_ip: str, vm_name: str):
         # Make local directory to install executables.
         run_ssh_command(ssh_client, "mkdir -p ~/.local/bin")
 
+        # Copy codex-tmux and tmux-codex.conf files.
+        with ssh_client.open_sftp() as sftp_client:
+            # Copy codex-tmux script.
+            local_codex_tmux = Path(__file__).parent / "files" / "codex-tmux"
+            if local_codex_tmux.exists():
+                remote_codex_tmux = ".local/bin/codex-tmux"
+                sftp_client.put(str(local_codex_tmux), remote_codex_tmux)
+                sftp_client.chmod(remote_codex_tmux, 0o755)  # Make executable
+
+            # Copy tmux-codex.conf.
+            local_tmux_conf = Path(__file__).parent / "files" / "tmux-codex.conf"
+            if local_tmux_conf.exists():
+                remote_tmux_conf = ".local/bin/tmux-codex.conf"
+                sftp_client.put(str(local_tmux_conf), remote_tmux_conf)
+                sftp_client.chmod(remote_tmux_conf, 0o644)
+
+            # Copy codex-init-session script.
+            local_codex_init = Path(__file__).parent / "files" / "codex-init-session"
+            if local_codex_init.exists():
+                remote_codex_init = ".local/bin/codex-init-session"
+                sftp_client.put(str(local_codex_init), remote_codex_init)
+                sftp_client.chmod(remote_codex_init, 0o755)  # Make executable
+
+            # Create ~/.codex directory and copy configuration files.
+            run_ssh_command(ssh_client, "mkdir -p ~/.codex")
+            
+            # Copy AGENTS.md from files directory.
+            local_agents_md = Path(__file__).parent / "files" / "AGENTS.md"
+            if local_agents_md.exists():
+                remote_agents_md = ".codex/AGENTS.md"
+                sftp_client.put(str(local_agents_md), remote_agents_md)
+                sftp_client.chmod(remote_agents_md, 0o644)
+
+            # Copy config.toml from files directory.
+            local_config_toml = Path(__file__).parent / "files" / "config.toml"
+            if local_config_toml.exists():
+                remote_config_toml = ".codex/config.toml"
+                sftp_client.put(str(local_config_toml), remote_config_toml)
+                sftp_client.chmod(remote_config_toml, 0o644)
+
         # Install delta.
         run_ssh_command(
             ssh_client,
@@ -703,6 +743,53 @@ def coder(vm_name: str) -> None:
 
         # Make local directory to install executables.
         run_ssh_command(ssh_client, "mkdir -p ~/.local/bin")
+
+        # Copy codex-tmux, claude-tmux and tmux-codex.conf files
+        with ssh_client.open_sftp() as sftp_client:
+            # Copy codex-tmux script
+            local_codex_tmux = Path(__file__).parent / "files" / "codex-tmux"
+            if local_codex_tmux.exists():
+                remote_codex_tmux = ".local/bin/codex-tmux"
+                sftp_client.put(str(local_codex_tmux), remote_codex_tmux)
+                sftp_client.chmod(remote_codex_tmux, 0o755)  # Make executable
+
+            # Copy claude-tmux script
+            local_claude_tmux = Path(__file__).parent / "files" / "claude-tmux"
+            if local_claude_tmux.exists():
+                remote_claude_tmux = ".local/bin/claude-tmux"
+                sftp_client.put(str(local_claude_tmux), remote_claude_tmux)
+                sftp_client.chmod(remote_claude_tmux, 0o755)  # Make executable
+
+            # Copy tmux-codex.conf
+            local_tmux_conf = Path(__file__).parent / "files" / "tmux-codex.conf"
+            if local_tmux_conf.exists():
+                remote_tmux_conf = ".local/bin/tmux-codex.conf"
+                sftp_client.put(str(local_tmux_conf), remote_tmux_conf)
+                sftp_client.chmod(remote_tmux_conf, 0o644)
+
+            # Copy codex-init-session script
+            local_codex_init = Path(__file__).parent / "files" / "codex-init-session"
+            if local_codex_init.exists():
+                remote_codex_init = ".local/bin/codex-init-session"
+                sftp_client.put(str(local_codex_init), remote_codex_init)
+                sftp_client.chmod(remote_codex_init, 0o755)  # Make executable
+
+            # Create ~/.codex directory and copy configuration files
+            run_ssh_command(ssh_client, "mkdir -p ~/.codex")
+            
+            # Copy AGENTS.md from files directory
+            local_agents_md = Path(__file__).parent / "files" / "AGENTS.md"
+            if local_agents_md.exists():
+                remote_agents_md = ".codex/AGENTS.md"
+                sftp_client.put(str(local_agents_md), remote_agents_md)
+                sftp_client.chmod(remote_agents_md, 0o644)
+
+            # Copy config.toml from files directory
+            local_config_toml = Path(__file__).parent / "files" / "config.toml"
+            if local_config_toml.exists():
+                remote_config_toml = ".codex/config.toml"
+                sftp_client.put(str(local_config_toml), remote_config_toml)
+                sftp_client.chmod(remote_config_toml, 0o644)
 
         # Install delta.
         run_ssh_command(

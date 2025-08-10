@@ -1,0 +1,25 @@
+# === Core model ===
+model = "gpt-5"                 # v0.15.0+ defaults to gpt-5, set explicitly here
+model_provider = "openai"
+
+# === Autonomy & sandbox ===
+approval_policy = "on-request"  # model asks when it needs to escalate; less friction than 'untrusted'
+sandbox_mode    = "workspace-write"  # write only in the workspace; read anywhere
+
+# === Upgrade reasoning ===
+# CLI has --reasoning {low,medium,high}; set top-level so it isn't dropped by profiles.
+model_reasoning_effort  = "high"
+model_reasoning_summary = "detailed"
+
+# === Allow network inside the sandbox ===
+[sandbox_workspace_write]
+network_access = true  # enables HTTP(S) egress from commands the agent runs in the sandbox
+
+# === Optional: convenience profiles you can opt into ===
+[profiles.full_auto]                 # non-interactive automation while keeping write-guardrails
+approval_policy = "never"
+sandbox_mode    = "workspace-write"
+
+[profiles.no_sandbox]                # truly removes the sandbox (writes anywhere) -- use with care
+approval_policy = "never"
+sandbox_mode    = "danger-full-access"

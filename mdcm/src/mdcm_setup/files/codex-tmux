@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+conf="$HOME/.local/bin/tmux-codex.conf"
+
+if ! command -v tmux >/dev/null 2>&1; then
+  echo "tmux is required. Install tmux and retry." >&2
+  exit 1
+fi
+if ! command -v codex >/dev/null 2>&1; then
+  echo "codex CLI not found in PATH." >&2
+  exit 1
+fi
+
+# If already inside tmux, just run codex directly to avoid nesting
+if [[ -n "${TMUX-}" ]]; then
+  exec codex "$@"
+fi
+
+cmd=(codex)
+for a in "$@"; do cmd+=("$a"); done
+# Safely quote the command for tmux
+cmd_str=$(printf '%q ' "${cmd[@]}")
+
+exec tmux -f "$conf" new-session -A -s codex "$cmd_str"

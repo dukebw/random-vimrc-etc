@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="${CODEX_SCRATCH_ROOT:-"$HOME/work/modular-scratch"}"
+TOPIC=""
+SLUG_OVERRIDE=""
+OPEN=0
+FORCE=0
+QUIET=0
+EMIT_JSON=0
+
+usage() {
+  cat <<USAGE
+codex-init-session [--slug SLUG | --topic WORDS] [--root DIR] [--open] [--force] [--json] [--quiet]
+  --slug    Full session slug to use verbatim (e.g., "2025-08-10_1412-llama-quant")
+  --topic   Topic to compose into the slug (fallback if --slug omitted)
+  --root    Base dir for sessions (default: $ROOT)
+  --open    Open PLANS/TASKS/WORKLOG in \$EDITOR
+  --force   Overwrite existing session directory if it exists
+  --json    Print a single-line JSON object with {slug, session_dir, created, repo_root}
+  --quiet   Suppress human-readable banners; combine with --json for agent-friendly output
+USAGE
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --topic|-t) TOPIC="${2-}"; shift 2;;
+    --slug)     SLUG_OVERRIDE="${2-}"; shift 2;;
+    --root|-r)  ROOT="${2-}"; shift 2;;
+    --open|-o)  OPEN=1; shift;;
+    --force|-f) FORCE=1; shift;;
+    --json)     EMIT_JSON=1; shift;;
+    --quiet|-q) QUIET=1; shift;;
+    -h|--help)  usage; exit 0;;
+    *) echo "Unknown arg: $1" >&2; usage; exit 1;;
+  esac
+done
+
+timestamp_utc() { date -u +'%Y-%m-%dT%H:%M:%SZ'; }
+today_slug()    { date -u +'%Y-%m-%d_%H%M'; }
+
+slugify() {
+  # lower, replace non [a-z0-9-_] with '-', trim leading/trailing '-'
+  tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9-_' '-' | sed -e 's/^-//' -e 's/-$//'
+}
+
+if [[ -n "$SLUG_OVERRIDE" ]]; then
+  SLUG="$(printf '%s' "$SLUG_OVERRIDE" | slugify)"
+else
+  TOPIC_SLUG="$(printf '%s' "$TOPIC" | slugify)"
+  SLUG="$(today_slug)${TOPIC_SLUG:+-$TOPIC_SLUG}"
+fi
+SESSION_DIR="$ROOT/$SLUG"
+
+if [[ -e "$SESSION_DIR" && "$FORCE" -ne 1 ]]; then
+  echo "Refusing to overwrite existing: $SESSION_DIR (use --force)" >&2
+  exit 1
+fi
+
+mkdir -p "$SESSION_DIR"
+CREATED="$(timestamp_utc)"
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+# ---------- PLANS.md ----------
+cat >"$SESSION_DIR/PLANS.md" <<EOF
+# PLAN — $SLUG
+
+<!-- BEGIN:PLAN_META -->
+- created: $CREATED
+- workspace: $SESSION_DIR
+- repo_root: $REPO_ROOT
+- model_prefs: { model: gpt-5, temperature: 0.2 }
+- invariants:
+  - no edits without explicit user approval
+  - small, verifiable diffs; revert plan if tests fail
+  - use unified diffs; include exact commands & test names
+<!-- END:PLAN_META -->
+
+## Context
+<!-- Problem, code paths, linked issues/PRs, constraints (≤10 lines). -->
+
+## Objectives (measurable)
+- [ ] <goal-1>  _(success: …)_
+- [ ] <goal-2>  _(success: …)_
+
+## Current Plan (v1)
+1. **Change**: <files/symbols>  
+   **Why**: <reason>  
+   **Verification**: run \`<cmd>\`; expect <tests> to pass; acceptance = <criterion>  
+   **Risks**: <edges>  **Size**: S/M/L
+2. …
+
+## File Touch Map
+- \`path/to/file1\`: <functions/classes>
+- \`path/to/file2\`: <tests/specs>
+
+## Alternatives & Trade‑offs
+- **A:** <approach> — Pros: … / Cons: …
+- **B:** <approach> — Pros: … / Cons: …
+
+## Assumptions
+- <assumption-1>
+- <assumption-2>
+
+## Risks & Rollback
+- **Risk:** <desc> — **Mitigation:** <…> — **Rollback:** \`git …\`
+
+## Approval Gate
+- status: **pending** | approved | rejected
+- approved_by: <name>
+- timestamp: <ISO8601-UTC>
+- notes: <scope caps>
+
+<!-- Codex: do not execute until 'status: approved'. -->
+EOF
+
+# ---------- TASKS.md ----------
+cat >"$SESSION_DIR/TASKS.md" <<'EOF'
+# TASKS — <SESSION_SLUG>
+
+<!-- status=todo|doing|done|blocked|deferred, owner=agent|user, prio=P0..P3 -->
+## Index
+| id     | desc                               | owner | status | prio | evidence                      | due       |
+|--------|------------------------------------|-------|--------|------|-------------------------------|-----------|
+| T-000  | Initialize session docs            | agent | done   | P2   | plan v1 created               | <date>    |
+| T-001  | Approve PLAN v1                    | user  | todo   | P0   | approval gate in PLANS.md     | <date>    |
+| T-002  | Implement step 1 (see PLAN v1)     | agent | todo   | P1   | diff + tests listed           | <date>    |
+| T-003  | Implement step 2                   | agent | todo   | P1   |                               | <date>    |
+| T-004  | Add/Update tests                   | agent | todo   | P1   | test names in WORKLOG         | <date>    |
+| T-005  | Perf check/regression gate         | agent | todo   | P2   | baseline vs post numbers      | <date>    |
+
+## Blockers
+- T-00X blocked by: <reason> (link to WORKLOG entry #)
+
+## Notes
+- Evidence should reference test names (e.g., FooSpec::bar_returns_ok) and/or benchmark IDs with numbers.
+EOF
+# Replace placeholder slug in TASKS.md title
+sed -i.bak "1s/<SESSION_SLUG>/$SLUG/" "$SESSION_DIR/TASKS.md" && rm -f "$SESSION_DIR/TASKS.md.bak"
+
+# ---------- WORKLOG.md ----------
+cat >"$SESSION_DIR/WORKLOG.md" <<EOF
+# WORKLOG — $SLUG
+
+<!-- Append-only. One entry per action. Do not edit prior entries. -->
+
+## Conventions
+- Include **exact** commands and relevant output excerpts (exit codes, durations).
+- Reference PLAN step IDs and TASK IDs.
+- If reverted, add a follow-up entry with the rollback commands and rationale.
+
+---
+
+## [$CREATED] Entry #000
+- plan_ref: PLAN v1 step <n>   | tasks: [T-00n]
+- rationale: <why-this-step>
+- diffs: <commit SHA or "pending approval">
+- commands:
+\`\`\`sh
+<cmd 1>
+<cmd 2>
+\`\`\`
+- results:
+\`\`\`text
+<key output>  # e.g., "OK (128 tests)"
+\`\`\`
+- status: success | failure | partial
+- artifacts: <path/to/report>, <coverage>, <benchmark-json>
+- next: <follow-up or link to updated PLAN/TASKS>
+EOF
+
+if [[ "$EMIT_JSON" -eq 1 ]]; then
+  printf '{"slug":"%s","session_dir":"%s","created":"%s","repo_root":"%s"}\n' \
+    "$SLUG" "$SESSION_DIR" "$CREATED" "$REPO_ROOT"
+elif [[ "$QUIET" -ne 1 ]]; then
+  printf 'Scaffolded session at %s\n' "$SESSION_DIR"
+fi
+
+if [[ "$OPEN" -eq 1 ]]; then
+  EDITOR_BIN="${EDITOR:-}"
+  for C in "$EDITOR_BIN" nvim vim nano vi; do
+    if command -v "$C" >/dev/null 2>&1; then
+      "$C" "$SESSION_DIR/PLANS.md" "$SESSION_DIR/TASKS.md" "$SESSION_DIR/WORKLOG.md"
+      break
+    fi
+  done
+fi
+# Note: intentionally no 'cd' or launch hint; agent/driver controls the working dir.
