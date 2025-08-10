@@ -146,7 +146,9 @@ def cli():
 
 @cli.command()
 @click.option("--vm-ip", type=str, required=True, help="IP address of the VM")
-@click.option("--vm-name", type=str, default="c6i.16xlarge", help="Name of the VM")
+@click.option(
+    "--vm-name", type=str, default="c6i.16xlarge", help="Name of the VM"
+)
 def install_configure(vm_ip: str, vm_name: str):
     """SSH into the VM and run install and configuration commands."""
     remote_work_dir = "~/work"
@@ -238,7 +240,9 @@ def install_configure(vm_ip: str, vm_name: str):
             ssh_client, f"echo -e '{expect_script}' > install_oh_my_zsh.expect"
         )
         run_ssh_command(ssh_client, "chmod +x install_oh_my_zsh.expect")
-        run_ssh_command(ssh_client, "rm -rf ~/.oh-my-zsh && ./install_oh_my_zsh.expect")
+        run_ssh_command(
+            ssh_client, "rm -rf ~/.oh-my-zsh && ./install_oh_my_zsh.expect"
+        )
 
         # TODO: this should be in install-dependencies.py
         run_ssh_command(ssh_client, f"sudo {apt} install -y libtbb-dev")
@@ -252,11 +256,11 @@ def install_configure(vm_ip: str, vm_name: str):
             ssh_client,
             (
                 "curl -fsSL"
-                " https://github.com/neovim/neovim/releases/download/v0.11.0/nvim-linux-x86_64.tar.gz"
-                " -o nvim-linux64.tar.gz"
+                " https://github.com/neovim/neovim/releases/download/v0.11.3/nvim-linux-x86_64.tar.gz"
+                " -o nvim-linux-x86_64.tar.gz"
             ),
         )
-        run_ssh_command(ssh_client, "tar zxf nvim-linux64.tar.gz")
+        run_ssh_command(ssh_client, "tar zxf nvim-linux-x86_64.tar.gz")
         run_ssh_command(
             ssh_client,
             "sudo ln -s $(pwd)/nvim-linux-x86_64/bin/nvim /usr/local/bin",
@@ -377,9 +381,9 @@ def install_configure(vm_ip: str, vm_name: str):
 
         # Encode the .zshrc epilogue to base64 to avoid issues with special
         # characters on the command line.
-        zshrc_epilogue_quoted = base64.b64encode(ZSHRC_EPILOGUE.encode("utf-8")).decode(
-            "utf-8"
-        )
+        zshrc_epilogue_quoted = base64.b64encode(
+            ZSHRC_EPILOGUE.encode("utf-8")
+        ).decode("utf-8")
         run_ssh_command(
             ssh_client,
             f'echo "{zshrc_epilogue_quoted}" | base64 --decode >> ~/.zshrc',
@@ -391,10 +395,14 @@ def install_configure(vm_ip: str, vm_name: str):
         )
 
         # Install latest LLVM.
-        run_ssh_command(ssh_client, "cd ~/work/modular && ./utils/install-llvm.sh")
+        run_ssh_command(
+            ssh_client, "cd ~/work/modular && ./utils/install-llvm.sh"
+        )
 
         # Install pnpm.
-        run_ssh_command(ssh_client, "curl -fsSL https://get.pnpm.io/install.sh | sh -")
+        run_ssh_command(
+            ssh_client, "curl -fsSL https://get.pnpm.io/install.sh | sh -"
+        )
 
         # Install nvm.
         run_ssh_command(
@@ -438,14 +446,18 @@ def install_configure(vm_ip: str, vm_name: str):
                 sftp_client.chmod(remote_codex_tmux, 0o755)  # Make executable
 
             # Copy tmux-codex.conf.
-            local_tmux_conf = Path(__file__).parent / "files" / "tmux-codex.conf"
+            local_tmux_conf = (
+                Path(__file__).parent / "files" / "tmux-codex.conf"
+            )
             if local_tmux_conf.exists():
                 remote_tmux_conf = ".local/bin/tmux-codex.conf"
                 sftp_client.put(str(local_tmux_conf), remote_tmux_conf)
                 sftp_client.chmod(remote_tmux_conf, 0o644)
 
             # Copy codex-init-session script.
-            local_codex_init = Path(__file__).parent / "files" / "codex-init-session"
+            local_codex_init = (
+                Path(__file__).parent / "files" / "codex-init-session"
+            )
             if local_codex_init.exists():
                 remote_codex_init = ".local/bin/codex-init-session"
                 sftp_client.put(str(local_codex_init), remote_codex_init)
@@ -453,7 +465,7 @@ def install_configure(vm_ip: str, vm_name: str):
 
             # Create ~/.codex directory and copy configuration files.
             run_ssh_command(ssh_client, "mkdir -p ~/.codex")
-            
+
             # Copy AGENTS.md from files directory.
             local_agents_md = Path(__file__).parent / "files" / "AGENTS.md"
             if local_agents_md.exists():
@@ -519,7 +531,9 @@ def install_configure(vm_ip: str, vm_name: str):
 [maintenance]
 	repo = /home/ubuntu/work/modular
 """
-        gittconfig_quoted = base64.b64encode(gitconfig.encode("utf-8")).decode("utf-8")
+        gittconfig_quoted = base64.b64encode(gitconfig.encode("utf-8")).decode(
+            "utf-8"
+        )
         run_ssh_command(
             ssh_client,
             f'echo "{gittconfig_quoted}" | base64 --decode > ~/.gitconfig',
@@ -539,7 +553,9 @@ def install_configure(vm_ip: str, vm_name: str):
 
         # Set up python dependencies.
         # nvim-dap-python needs debugpy.
-        run_ssh_command(ssh_client, "pip install --upgrade pip debugpy pynvim nvitop")
+        run_ssh_command(
+            ssh_client, "pip install --upgrade pip debugpy pynvim nvitop"
+        )
 
         # Install fzf.
         run_ssh_command(
@@ -559,7 +575,9 @@ def install_configure(vm_ip: str, vm_name: str):
 
 
 @cli.command()
-@click.option("--vm-name", type=str, default="bduke-a100", help="Name of the VM")
+@click.option(
+    "--vm-name", type=str, default="bduke-a100", help="Name of the VM"
+)
 def coder(vm_name: str) -> None:
     """SSH into the VM and run install and configuration commands."""
     gcl = "git clone --recurse-submodules"
@@ -632,7 +650,9 @@ def coder(vm_name: str) -> None:
             f"echo -e '{expect_script}' > install_oh_my_zsh.expect",
         )
         run_ssh_command(ssh_client, "chmod +x install_oh_my_zsh.expect")
-        run_ssh_command(ssh_client, "rm -rf ~/.oh-my-zsh && ./install_oh_my_zsh.expect")
+        run_ssh_command(
+            ssh_client, "rm -rf ~/.oh-my-zsh && ./install_oh_my_zsh.expect"
+        )
 
         # TODO: this should be in install-dependencies.py
         run_ssh_command(ssh_client, f"sudo {apt} install -y libtbb-dev")
@@ -646,7 +666,7 @@ def coder(vm_name: str) -> None:
             ssh_client,
             (
                 "curl -fsSL"
-                " https://github.com/neovim/neovim/releases/download/v0.11.1/nvim-linux-x86_64.tar.gz"
+                " https://github.com/neovim/neovim/releases/download/v0.11.3/nvim-linux-x86_64.tar.gz"
                 " -o nvim-linux-x86_64.tar.gz"
             ),
         )
@@ -692,9 +712,9 @@ def coder(vm_name: str) -> None:
 
         # Encode the .zshrc epilogue to base64 to avoid issues with special
         # characters on the command line.
-        zshrc_epilogue_quoted = base64.b64encode(ZSHRC_EPILOGUE.encode("utf-8")).decode(
-            "utf-8"
-        )
+        zshrc_epilogue_quoted = base64.b64encode(
+            ZSHRC_EPILOGUE.encode("utf-8")
+        ).decode("utf-8")
         run_ssh_command(
             ssh_client,
             f'echo "{zshrc_epilogue_quoted}" | base64 --decode >> ~/.zshrc',
@@ -707,10 +727,14 @@ def coder(vm_name: str) -> None:
         )
 
         # Install latest LLVM.
-        run_ssh_command(ssh_client, "cd ~/work/modular && ./utils/install-llvm.sh")
+        run_ssh_command(
+            ssh_client, "cd ~/work/modular && ./utils/install-llvm.sh"
+        )
 
         # Install pnpm.
-        run_ssh_command(ssh_client, "curl -fsSL https://get.pnpm.io/install.sh | sh -")
+        run_ssh_command(
+            ssh_client, "curl -fsSL https://get.pnpm.io/install.sh | sh -"
+        )
 
         # Install nvm.
         run_ssh_command(
@@ -761,14 +785,18 @@ def coder(vm_name: str) -> None:
                 sftp_client.chmod(remote_claude_tmux, 0o755)  # Make executable
 
             # Copy tmux-codex.conf
-            local_tmux_conf = Path(__file__).parent / "files" / "tmux-codex.conf"
+            local_tmux_conf = (
+                Path(__file__).parent / "files" / "tmux-codex.conf"
+            )
             if local_tmux_conf.exists():
                 remote_tmux_conf = ".local/bin/tmux-codex.conf"
                 sftp_client.put(str(local_tmux_conf), remote_tmux_conf)
                 sftp_client.chmod(remote_tmux_conf, 0o644)
 
             # Copy codex-init-session script
-            local_codex_init = Path(__file__).parent / "files" / "codex-init-session"
+            local_codex_init = (
+                Path(__file__).parent / "files" / "codex-init-session"
+            )
             if local_codex_init.exists():
                 remote_codex_init = ".local/bin/codex-init-session"
                 sftp_client.put(str(local_codex_init), remote_codex_init)
@@ -776,7 +804,7 @@ def coder(vm_name: str) -> None:
 
             # Create ~/.codex directory and copy configuration files
             run_ssh_command(ssh_client, "mkdir -p ~/.codex")
-            
+
             # Copy AGENTS.md from files directory
             local_agents_md = Path(__file__).parent / "files" / "AGENTS.md"
             if local_agents_md.exists():
@@ -842,7 +870,9 @@ def coder(vm_name: str) -> None:
 [maintenance]
         repo = /home/ubuntu/work/modular
 """
-        gittconfig_quoted = base64.b64encode(gitconfig.encode("utf-8")).decode("utf-8")
+        gittconfig_quoted = base64.b64encode(gitconfig.encode("utf-8")).decode(
+            "utf-8"
+        )
         run_ssh_command(
             ssh_client,
             f'echo "{gittconfig_quoted}" | base64 --decode > ~/.gitconfig',
@@ -867,7 +897,9 @@ def coder(vm_name: str) -> None:
 
         # Set up python dependencies.
         # nvim-dap-python needs debugpy.
-        run_ssh_command(ssh_client, "pip install --upgrade pip debugpy pynvim nvitop")
+        run_ssh_command(
+            ssh_client, "pip install --upgrade pip debugpy pynvim nvitop"
+        )
 
         # Install fzf.
         run_ssh_command(
