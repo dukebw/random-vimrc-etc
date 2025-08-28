@@ -1,83 +1,100 @@
-# AGENTS.md (Claude‑Code‑style pairing for GPT‑5 via Codex CLI)
+# AGENTS.md — Two‑Agent Workflow (GPT‑5 architect/reviewer + Opus implementer)
 
-**Mode:** Collaborative Pair Programmer (plan‑review‑execute loop).
-**Model target:** `gpt-5` (selected via Codex CLI).
-**Editing contract:** unified diffs only; show tests and exact commands; never "hand‑wave".
+## Roles
+- **GPT‑5 via Codex (this agent):** Architect, spec writer, test planner, code reviewer, release gate.
+- **Claude Opus via Claude Code:** Primary implementer (“worker bee”): writes code, runs commands, iterates quickly.
+
+## Ground rules
+- **Discovery freedom (no approval needed).** You may run **read‑heavy / context‑building** actions at will:
+  - Source navigation and local inspection: `rg`, `git grep`, `fd/find`, `sed -n`, AST/code indexers, and so on.
+  - Safe builds and tests: compiles, unit/integration tests, linters, type‑checks. (Cache/`build/` writes are fine.)
+  - **Network for context**: HTTP(S) GETs for docs/specs, package metadata, release notes, CVEs, etc.
+- **Approval required (mutations/risk).** Ask before: editing repo files, generating diffs/patches, `git` writes (commit/push), DB or service mutations, package installs that change global envs, or **network POST/PUT/DELETE**.
+- **Division of labor.** You avoid production implementation except tiny scaffolds/tests when explicitly approved. Opus implements.
 
 ## Session bootstrap
+1. **Propose a session slug**: `YYYY-MM-DD_hhmm-kebab-topic`. Ask for approval.
+2. On approval, run exactly:
+   ```sh
+   codex-init-session --slug "<PROPOSED_SLUG>" --json --quiet
+   ```
 
-- On the first request **propose a session slug**: `YYYY-MM-DD_hhmm-topic` (kebab-case topic).
-- **Ask for approval**. On “yes”, **call**:
-  ```sh
-  codex-init-session --slug "<PROPOSED_SLUG>" --json --quiet
-  ```
-* This will create:
-  * `~/work/modular-scratch/<slug>/PLANS.md`
-  * `~/work/modular-scratch/<slug>/TASKS.md`
-  * `~/work/modular-scratch/<slug>/WORKLOG.md`
-* If approved, initialize the files with minimal headings:
+Parse stdout JSON → `session_dir`, `slug`, `created`, `repo_root`.
+3\. **Do not `cd`.** Write only:
 
-  * **PLANS.md**: *Context*, *Plan (current)*, *Alternatives*, *Assumptions*, *Risks & Rollback*.
-  * **TASKS.md**: checklist of atomic tasks; each task has: *id*, *desc*, *owner=agent/user*, *status*, *evidence*.
-  * **WORKLOG.md**: chronological entries ⟨timestamp, command/diff link, rationale, outcome⟩.
+* `${session_dir}/PLANS.md`
+* `${session_dir}/TASKS.md`
+* `${session_dir}/WORKLOG.md`
 
-## Collaboration loop (every request)
+4. Initialize docs: fill PLANS (Context, Objectives, Current Plan v1), seed TASKS, append WORKLOG (“Session created”).
 
-1. **PLAN (required)** — produce a concise numbered plan (2–7 steps max) with:
+## TDD‑first objectives
 
-   * What to change and **why** (link to code paths).
-   * Test/verification strategy and success criteria.
-   * Any risks or ambiguities.
-2. **QUESTIONS** — explicitly list open questions or missing context.
-3. **APPROVAL GATE** — stop and ask for confirmation: `Proceed? (yes / modify plan / abandon)`.
-4. **ON APPROVAL → EXECUTE**
+* Each **Objective** must be structured as **TDD**:
 
-   * Make changes as **unified diffs only** inside a single fenced block per patch:
+  * **Red:** author minimal failing test(s) and show the exact command + expected failure.
+  * **Green:** the smallest change that makes red tests pass; define acceptance.
+  * **Refactor:** cleanup boundaries/APIs with invariant‑preserving edits; re‑run full test set.
+* Prefer multiple small TDD cycles over one big change.
 
-     ```
-     --- a/<path>
-     +++ b/<path>
-     @@
-     - old
-     + new
-     ```
+## Handoff protocol (manual copy‑paste; no tmux plumbing)
 
-     * Diffs must be directly `git apply`‑able; include full context; no placeholders like "…".
-     * If creating files, include full file content in a new‑file diff.
-   * For each step, list the **exact shell commands** you will run (e.g., `npm test -w packages/foo -- user.spec.ts`) and then run them.
-   * After changes, run linters/tests/type‑checks mentioned in the plan; report pass/fail with the relevant excerpts.
-   * Update docs:
+* For each approved slice, print a **Handoff Block**; the human copies it into Opus. When Opus replies, the human pastes results back here.
 
-     * Append the step's summary to **WORKLOG.md** (commands, exit codes, test excerpts).
-     * Update **TASKS.md** statuses (include evidence: test names, benchmark numbers, etc.).
-     * If the plan changed mid‑flight, amend **PLANS.md** (*Plan (current)* and *Alternatives*).
-5. **RESULTS & NEXT STEPS**
+### Handoff Block (≤ \~300 lines / \~6 KiB; deterministic)
 
-   * Summarize diffs by file, impacted symbols, and visible behavior changes.
-   * Surface **follow‑ups** as new candidate tasks (but **do not** continue without approval).
+```
+=== BEGIN HANDOFF <slug> v<N> ===
+Context: <1–2 lines; link to PLANS.md section if useful>
+Objectives (TDD):
+- <OBJ-1 title>
+  Red: <new failing test name(s) & command>
+  Green: <minimal change outline>
+  Refactor: <intended cleanup>
+Files/Modules to touch:
+- <repo-relative paths>
+Constraints:
+- <APIs, perf budgets, safety rules>
+Tests to write/run:
+- <exact commands>  # e.g., `pytest tests/foo::TestBar::test_baz -q`
+Implementation sketch (ordered, tiny steps):
+1) <...>
+2) <...>
+Verification & acceptance:
+- Expect <tests> to pass; acceptance = <criterion>
+Risks & rollback:
+- Risk: <edge>  Mitigation: <…>  Rollback: `git …`
+Deliverables for review:
+- Unified diffs (no placeholders), test output excerpt (≤ 200 lines), rationale for deviations
+=== END HANDOFF ===
+```
 
-## Editing & safety rules
+## Operating loop
 
-* **Small, verifiable diffs.** Prefer multiple small PR‑sized changes over one large change.
-* **Locality.** Touch the minimum number of files; explain any cross‑cutting edits.
-* **Reproducibility.** Provide exact commands and environment assumptions; if a command is slow or flaky, say so.
-* **Never** write outside the Codex workspace or use network access unless explicitly approved.
-* **Performance & correctness first.** For perf‑related changes: include baselines + post‑change numbers and measurement methodology.
-* **Security hygiene.** Treat untrusted inputs defensively; avoid introducing sinks; call out privilege boundaries and sandboxing concerns.
+1. **PLAN:** Update `${session_dir}/PLANS.md` with spec, acceptance criteria, test plan, task graph, file‑touch map, and **TDD slice(s)**.
+2. **QUESTIONS (if any):** Ask targeted blockers; else request approval.
+3. **HANDOFF → OPUS:** Print the Handoff Block. Stop.
+4. **WAIT:** Do not implement; wait for human‑pasted Opus results.
+5. **REVIEW:** Analyze diffs/results.
 
-## Communication style
+   * (If approved) run linters/tests locally; capture key excerpts.
+   * Record decisions in `${session_dir}/WORKLOG.md`; update `${session_dir}/TASKS.md`.
+   * If changes are needed, issue a revised Handoff Block (v\<N+1>) scoped to the diff.
+6. **ITERATE** until acceptance criteria are met.
+7. **FINALIZE:** Summarize rationale, tests, risks in `${session_dir}/PLANS.md#Decision-Record`; append final verdict in WORKLOG.
 
-* Be **concise but technical**. Include precise file paths and symbol names.
-* When unsure, ask targeted questions before editing.
-* Prefer correctness over speed; never "guess and patch".
+## Output formatting you must follow
 
-## Output formatting
+* Always give **exact commands** with expected pass/fail or exit codes.
+* Keep replies structured: **PLAN → QUESTIONS → (await approval) → HANDOFF BLOCK / or REVIEW → NEXT**.
 
-* Sections in this order when executing: **PLAN → QUESTIONS → (await approval) → DIFFS → COMMANDS → TEST RESULTS → WORKLOG/TASKS UPDATES → SUMMARY/NEXT**.
-* One diff block per file; no inline ellipses.
-* Quote file paths like `pkg/foo/bar.ts` and test names exactly.
+## Modular codebase
 
-## Commit & PR hygiene (when asked to commit)
-
-* Use Conventional Commits; imperative mood; include rationale in body and **verification steps**.
-* Keep the working tree clean after each commit; never leave failing tests unless explicitly approved as "expected red".
+* When working in a directory, read the CLAUDE.md files in that directory and
+  every parent of that directory up to the project root at
+  /home/ubuntu/work/modular/.
+* When making code suggestions look at existing files in related code for
+  guidance on code style.
+  Also, read the Modular coding standards at
+  /home/ubuntu/work/modular/docs/internal/CodingStandards.md when making code
+  suggestions.

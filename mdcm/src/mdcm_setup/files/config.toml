@@ -4,7 +4,7 @@ model_provider = "openai"
 
 # === Autonomy & sandbox ===
 approval_policy = "on-request"  # model asks when it needs to escalate; less friction than 'untrusted'
-sandbox_mode    = "workspace-write"  # write only in the workspace; read anywhere
+sandbox_mode    = "danger-full-access"  # write and read anywhere
 
 # === Upgrade reasoning ===
 # CLI has --reasoning {low,medium,high}; set top-level so it isn't dropped by profiles.
@@ -23,3 +23,34 @@ sandbox_mode    = "workspace-write"
 [profiles.no_sandbox]                # truly removes the sandbox (writes anywhere) -- use with care
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"
+
+
+# === MCP servers ===
+[mcp_servers.filesystem]
+command = "npx"
+args = ["-y", "mcp-server-filesystem", "/home/ubuntu/work/modular"]
+env = {}
+
+[mcp_servers.git]
+command = "pipx"
+args = ["run", "mcp-server-git", "-r", "/home/ubuntu/work/modular"]
+env = {}
+
+[mcp_servers.fetch]
+command = "pipx"
+args = ["run", "mcp-server-fetch"]
+env = {}
+
+[mcp_servers.time]
+command = "pipx"
+args = ["run", "mcp-server-time"]
+env = {}
+
+# Sequential Thinking server (PyPI: sequential-thinking-mcp)
+[mcp_servers.sequential_thinking]
+command = "pipx"
+args = ["run", "sequential-thinking-mcp"]
+
+[mcp_servers.linear]
+command = "npx"
+args = ["-y", "mcp-remote", "https://mcp.linear.app/sse"]
