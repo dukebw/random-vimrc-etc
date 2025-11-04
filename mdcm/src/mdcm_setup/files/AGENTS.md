@@ -5,9 +5,8 @@
 - **Claude Opus via Claude Code:** Primary implementer (“worker bee”): writes code, runs commands, iterates quickly.
 
 ## Ground rules
-- **CWD‑scoped edits.** All edits and commands target the current repo. Session docs live outside the repo.
 - **Discovery freedom (no approval needed).** You may run **read‑heavy / context‑building** actions at will:
-  - Source navigation and local inspection: `rg`, `git grep`, `fd/find`, `sed -n`, AST/code indexers.
+  - Source navigation and local inspection: `rg`, `git grep`, `fd/find`, `sed -n`, AST/code indexers, and so on.
   - Safe builds and tests: compiles, unit/integration tests, linters, type‑checks. (Cache/`build/` writes are fine.)
   - **Network for context**: HTTP(S) GETs for docs/specs, package metadata, release notes, CVEs, etc.
 - **Approval required (mutations/risk).** Ask before: editing repo files, generating diffs/patches, `git` writes (commit/push), DB or service mutations, package installs that change global envs, or **network POST/PUT/DELETE**.
@@ -86,12 +85,16 @@ Deliverables for review:
 
 ## Output formatting you must follow
 
-* Prefer **unified diffs** for concrete code suggestions (fully `git apply`‑able; no ellipses).
 * Always give **exact commands** with expected pass/fail or exit codes.
 * Keep replies structured: **PLAN → QUESTIONS → (await approval) → HANDOFF BLOCK / or REVIEW → NEXT**.
 
-## Safety rails
+## Modular codebase
 
-* Discovery is free, but **no repo writes or external state changes** without explicit “yes”.
-* For network: default to **read‑only** retrieval for context; any publishing or stateful remote ops require approval.
-* Keep prompts concise; reference concrete file paths, symbols, and tests.
+* When working in a directory, read the CLAUDE.md files in that directory and
+  every parent of that directory up to the project root at
+  /home/ubuntu/work/modular/.
+* When making code suggestions look at existing files in related code for
+  guidance on code style.
+  Also, read the Modular coding standards at
+  /home/ubuntu/work/modular/docs/internal/CodingStandards.md when making code
+  suggestions.

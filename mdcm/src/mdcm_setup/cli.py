@@ -114,6 +114,7 @@ export HF_TOKEN=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
 
 # Add additional environment variables.
 [ -f ~/.env ] && source ~/.env
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
         """
 
 
@@ -246,10 +247,10 @@ def install_configure(vm_ip: str, vm_name: str):
 
         # TODO: this should be in install-dependencies.py
         run_ssh_command(ssh_client, f"sudo {apt} install -y libtbb-dev")
-        run_ssh_command(
-            ssh_client,
-            f"sudo {apt} install -y ~/NsightSystems-linux-cli-public-2024.7.1.84-3512561.deb",
-        )
+        # run_ssh_command(
+        #     ssh_client,
+        #     f"sudo {apt} install -y ~/NsightSystems-linux-cli-public-2024.7.1.84-3512561.deb",
+        # )
 
         # Install neovim.
         run_ssh_command(
