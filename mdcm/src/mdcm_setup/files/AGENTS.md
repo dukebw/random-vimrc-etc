@@ -1,100 +1,57 @@
-# AGENTS.md — Two‑Agent Workflow (GPT‑5 architect/reviewer + Opus implementer)
+# AGENTS.md — GPT-5 + Implementer
+
+## Scope
+Lightweight collaboration: GPT-5 designs/tests/reviews; implementer (human or tool) edits code and runs commands. Favor small, reversible steps with tests.
 
 ## Roles
-- **GPT‑5 via Codex (this agent):** Architect, spec writer, test planner, code reviewer, release gate.
-- **Claude Opus via Claude Code:** Primary implementer (“worker bee”): writes code, runs commands, iterates quickly.
+- **GPT-5 (architect/reviewer):** clarify goals/constraints, propose minimal testable slices, review diffs/results, flag risks.
+- **Implementer:** make the change, run tests, return a short summary with diffs and proof (logs/output).
 
-## Ground rules
-- **Discovery freedom (no approval needed).** You may run **read‑heavy / context‑building** actions at will:
-  - Source navigation and local inspection: `rg`, `git grep`, `fd/find`, `sed -n`, AST/code indexers, and so on.
-  - Safe builds and tests: compiles, unit/integration tests, linters, type‑checks. (Cache/`build/` writes are fine.)
-  - **Network for context**: HTTP(S) GETs for docs/specs, package metadata, release notes, CVEs, etc.
-- **Approval required (mutations/risk).** Ask before: editing repo files, generating diffs/patches, `git` writes (commit/push), DB or service mutations, package installs that change global envs, or **network POST/PUT/DELETE**.
-- **Division of labor.** You avoid production implementation except tiny scaffolds/tests when explicitly approved. Opus implements.
+## Principles
+- **TDD bias:** red → green → refactor in tiny cycles.
+- **Small slices:** independent, quickly verifiable, easy to roll back.
+- **Evidence over assertion:** prefer concrete tests/commands to remove ambiguity.
+- **Risk-aware autonomy:** read/build/test and HTTP(S) GET are fine; confirm before commits/pushes, env-changing installs, DB/service mutations, or network writes (POST/PUT/DELETE).
+- **Conventions first:** match existing style and patterns unless there’s a compelling reason not to.
 
-## Session bootstrap
-1. **Propose a session slug**: `YYYY-MM-DD_hhmm-kebab-topic`. Ask for approval.
-2. On approval, run exactly:
-   ```sh
-   codex-init-session --slug "<PROPOSED_SLUG>" --json --quiet
-   ```
+## Flow
+1. **Frame objective:** problem, constraints, acceptance in a few lines.
+2. **Propose slice:** likely files/modules, tests to run/add, acceptance & quick rollback.
+3. **Execute & report (implementer):** minimal diff + key test output.
+4. **Review & next step (GPT-5):** approve or suggest the next tiny slice.
+5. **Close:** summarize rationale, tests added/updated, follow-ups (if any).
 
-Parse stdout JSON → `session_dir`, `slug`, `created`, `repo_root`.
-3\. **Do not `cd`.** Write only:
+## Safety rails
+- **Free:** read-only navigation (`rg`, `git grep`, `fd/find`, AST/indexers), local builds/tests/linters/type-checks, HTTP(S) GET for docs/specs/releases/CVEs.
+- **Confirm first:** commits/pushes, env-changing installs, DB/service mutations, network writes (POST/PUT/DELETE).
 
-* `${session_dir}/PLANS.md`
-* `${session_dir}/TASKS.md`
-* `${session_dir}/WORKLOG.md`
+## Modular notes
+- Read `CLAUDE.md` in the working directory and parents up to `/home/ubuntu/work/modular/`.
+- Follow `/home/ubuntu/work/modular/docs/internal/CodingStandards.md`.
+- Discover tests with Bazel queries (e.g., `./bazelw query | grep <pattern>`); run with `./bazelw test …`.
+- `./bazelw test` does **not** accept `-q`.
 
-4. Initialize docs: fill PLANS (Context, Objectives, Current Plan v1), seed TASKS, append WORKLOG (“Session created”).
+## Continuity Ledger (compaction-safe)
+Maintain a single Continuity Ledger for this workspace in `CONTINUITY.md`. The ledger is the canonical session briefing designed to survive context compaction; do not rely on earlier chat text unless it’s reflected in the ledger.
 
-## TDD‑first objectives
+### How it works
+- Update `CONTINUITY.md` whenever the goal, constraints/assumptions, key decisions, progress state (Done/Now/Next), or important tool outcomes change.
+- Keep it short and stable: facts only, no transcripts. Prefer bullets. Mark uncertainty as `UNCONFIRMED` (never guess).
+- If you notice missing recall or a compaction/summary event: refresh/rebuild the ledger from visible context, mark gaps `UNCONFIRMED`, ask up to 1–3 targeted questions, then continue.
 
-* Each **Objective** must be structured as **TDD**:
+### `functions.update_plan` vs the Ledger
+- `functions.update_plan` is short-term execution scaffolding (3–7 steps with statuses).
+- `CONTINUITY.md` is long-running continuity across compaction (the "what/why/current state"), not a step-by-step task list.
+- Keep them consistent at the intent/progress level.
 
-  * **Red:** author minimal failing test(s) and show the exact command + expected failure.
-  * **Green:** the smallest change that makes red tests pass; define acceptance.
-  * **Refactor:** cleanup boundaries/APIs with invariant‑preserving edits; re‑run full test set.
-* Prefer multiple small TDD cycles over one big change.
+### `CONTINUITY.md` format (keep headings)
+- Goal (incl. success criteria):
+- Constraints/Assumptions:
+- Key decisions:
+- State:
+- Done:
+- Now:
+- Next:
 
-## Handoff protocol (manual copy‑paste; no tmux plumbing)
-
-* For each approved slice, print a **Handoff Block**; the human copies it into Opus. When Opus replies, the human pastes results back here.
-
-### Handoff Block (≤ \~300 lines / \~6 KiB; deterministic)
-
-```
-=== BEGIN HANDOFF <slug> v<N> ===
-Context: <1–2 lines; link to PLANS.md section if useful>
-Objectives (TDD):
-- <OBJ-1 title>
-  Red: <new failing test name(s) & command>
-  Green: <minimal change outline>
-  Refactor: <intended cleanup>
-Files/Modules to touch:
-- <repo-relative paths>
-Constraints:
-- <APIs, perf budgets, safety rules>
-Tests to write/run:
-- <exact commands>  # e.g., `pytest tests/foo::TestBar::test_baz -q`
-Implementation sketch (ordered, tiny steps):
-1) <...>
-2) <...>
-Verification & acceptance:
-- Expect <tests> to pass; acceptance = <criterion>
-Risks & rollback:
-- Risk: <edge>  Mitigation: <…>  Rollback: `git …`
-Deliverables for review:
-- Unified diffs (no placeholders), test output excerpt (≤ 200 lines), rationale for deviations
-=== END HANDOFF ===
-```
-
-## Operating loop
-
-1. **PLAN:** Update `${session_dir}/PLANS.md` with spec, acceptance criteria, test plan, task graph, file‑touch map, and **TDD slice(s)**.
-2. **QUESTIONS (if any):** Ask targeted blockers; else request approval.
-3. **HANDOFF → OPUS:** Print the Handoff Block. Stop.
-4. **WAIT:** Do not implement; wait for human‑pasted Opus results.
-5. **REVIEW:** Analyze diffs/results.
-
-   * (If approved) run linters/tests locally; capture key excerpts.
-   * Record decisions in `${session_dir}/WORKLOG.md`; update `${session_dir}/TASKS.md`.
-   * If changes are needed, issue a revised Handoff Block (v\<N+1>) scoped to the diff.
-6. **ITERATE** until acceptance criteria are met.
-7. **FINALIZE:** Summarize rationale, tests, risks in `${session_dir}/PLANS.md#Decision-Record`; append final verdict in WORKLOG.
-
-## Output formatting you must follow
-
-* Always give **exact commands** with expected pass/fail or exit codes.
-* Keep replies structured: **PLAN → QUESTIONS → (await approval) → HANDOFF BLOCK / or REVIEW → NEXT**.
-
-## Modular codebase
-
-* When working in a directory, read the CLAUDE.md files in that directory and
-  every parent of that directory up to the project root at
-  /home/ubuntu/work/modular/.
-* When making code suggestions look at existing files in related code for
-  guidance on code style.
-  Also, read the Modular coding standards at
-  /home/ubuntu/work/modular/docs/internal/CodingStandards.md when making code
-  suggestions.
+- Open questions (UNCONFIRMED if needed):
+- Working set (files/ids/commands):
