@@ -500,11 +500,28 @@ def install_dev_tools(ssh_client, *, gcl, arch):
     )
     run_ssh_command(
         ssh_client,
-        f"{NVM_SOURCE} && nvm install node",
+        f"{NVM_SOURCE} && nvm install --lts && nvm alias default lts/*",
         timeout=LONG_TIMEOUT,
     )
 
-    # --- bazelrc-lsp (source pnpm before using it) ---
+    # --- Install bazelisk binary system-wide for LSP/tool builds ---
+    # Check for a real ELF binary, not a symlink to a shell wrapper.
+    # Also create a `bazelisk` symlink since some tools (e.g. bazelrc-lsp
+    # build.rs) spawn `bazelisk` by name.
+    run_ssh_command(
+        ssh_client,
+        "(file /usr/local/bin/bazel 2>/dev/null | grep -q ELF) || ("
+        " BZLARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
+        " && sudo curl -fsSL"
+        " https://github.com/bazelbuild/bazelisk/releases/latest/"
+        "download/bazelisk-linux-$BZLARCH"
+        " -o /usr/local/bin/bazel"
+        " && sudo chmod +x /usr/local/bin/bazel"
+        " && sudo ln -sf /usr/local/bin/bazel /usr/local/bin/bazelisk"
+        ")",
+    )
+
+    # --- bazelrc-lsp (source nvm, pnpm, cargo before building) ---
     clone_if_missing(
         ssh_client,
         gcl,
@@ -513,7 +530,8 @@ def install_dev_tools(ssh_client, *, gcl, arch):
     )
     run_ssh_command(
         ssh_client,
-        f"{PNPM_SOURCE} && cd ~/work/bazelrc-lsp/vscode-extension"
+        f"{NVM_SOURCE} && {PNPM_SOURCE} && {CARGO_SOURCE}"
+        " && cd ~/work/bazelrc-lsp/vscode-extension"
         " && pnpm i && pnpm package",
         timeout=LONG_TIMEOUT,
     )
